@@ -103,12 +103,12 @@ class PodcastImport extends BaseController
             'http://purl.org/rss/1.0/modules/content/',
         );
 
-        if ((string) $nsPodcast->locked === 'yes') {
+        /*if ((string) $nsPodcast->locked === 'yes') {
             return redirect()
                 ->back()
                 ->withInput()
                 ->with('errors', [lang('PodcastImport.lock_import')]);
-        }
+        }*/
 
         $converter = new HtmlConverter();
 
@@ -130,7 +130,9 @@ class PodcastImport extends BaseController
                 'description_html' => $channelDescriptionHtml,
                 'image' =>
                     $nsItunes->image && !empty($nsItunes->image->attributes())
-                        ? download_file((string) $nsItunes->image->attributes())
+                        ? download_file(
+                            (string) $nsItunes->image->attributes()['href'],
+                        )
                         : ($feed->channel[0]->image &&
                         !empty($feed->channel[0]->image->url)
                             ? download_file(
@@ -345,7 +347,9 @@ class PodcastImport extends BaseController
                 'guid' => empty($item->guid) ? null : $item->guid,
                 'title' => $item->title,
                 'slug' => $slug,
-                'audio_file' => download_file($item->enclosure->attributes()),
+                'audio_file' => download_file(
+                    $item->enclosure->attributes()['url'],
+                ),
                 'description_markdown' => $converter->convert(
                     $itemDescriptionHtml,
                 ),
@@ -354,7 +358,7 @@ class PodcastImport extends BaseController
                     !$nsItunes->image || empty($nsItunes->image->attributes())
                         ? null
                         : download_file(
-                            (string) $nsItunes->image->attributes(),
+                            (string) $nsItunes->image->attributes()['href'],
                         ),
                 'parental_advisory' => empty($nsItunes->explicit)
                     ? null
@@ -395,6 +399,12 @@ class PodcastImport extends BaseController
                     empty($nsPodcast->location->attributes()['osm'])
                         ? null
                         : $nsPodcast->location->attributes()['osm'],
+                'transcript_file_remote_url' => !$nsPodcast->transcript
+                    ? null
+                    : $nsPodcast->transcript->attributes()['url'],
+                'chapters_file_remote_url' => !$nsPodcast->chapters
+                    ? null
+                    : $nsPodcast->chapters->attributes()['url'],
                 'created_by' => user()->id,
                 'updated_by' => user()->id,
                 'published_at' => strtotime($item->pubDate),

@@ -41,50 +41,54 @@ function save_media($filePath, $folder, $mediaName)
  */
 function download_file($fileUrl)
 {
-    $client = \Config\Services::curlrequest();
+    try {
+        $client = \Config\Services::curlrequest();
 
-    $response = $client->get($fileUrl, [
-        'headers' => [
-            'User-Agent' => 'Castopod/' . CP_VERSION,
-        ],
-    ]);
-
-    // redirect to new file location
-    $newFileUrl = $fileUrl;
-    while (
-        in_array(
-            $response->getStatusCode(),
-            [
-                ResponseInterface::HTTP_MOVED_PERMANENTLY,
-                ResponseInterface::HTTP_FOUND,
-                ResponseInterface::HTTP_SEE_OTHER,
-                ResponseInterface::HTTP_NOT_MODIFIED,
-                ResponseInterface::HTTP_TEMPORARY_REDIRECT,
-                ResponseInterface::HTTP_PERMANENT_REDIRECT,
-            ],
-            true,
-        )
-    ) {
-        $newFileUrl = (string) trim(
-            $response->getHeader('location')->getValue(),
-        );
-        $response = $client->get($newFileUrl, [
+        $response = $client->get($fileUrl, [
             'headers' => [
                 'User-Agent' => 'Castopod/' . CP_VERSION,
             ],
-            'http_errors' => false,
         ]);
-    }
-    $tmpFilename =
-        time() .
-        '_' .
-        bin2hex(random_bytes(10)) .
-        '.' .
-        pathinfo(parse_url($newFileUrl, PHP_URL_PATH), PATHINFO_EXTENSION);
-    $tmpFilePath = WRITEPATH . 'uploads/' . $tmpFilename;
-    file_put_contents($tmpFilePath, $response->getBody());
 
-    return new \CodeIgniter\Files\File($tmpFilePath);
+        // redirect to new file location
+        $newFileUrl = $fileUrl;
+        while (
+            in_array(
+                $response->getStatusCode(),
+                [
+                    ResponseInterface::HTTP_MOVED_PERMANENTLY,
+                    ResponseInterface::HTTP_FOUND,
+                    ResponseInterface::HTTP_SEE_OTHER,
+                    ResponseInterface::HTTP_NOT_MODIFIED,
+                    ResponseInterface::HTTP_TEMPORARY_REDIRECT,
+                    ResponseInterface::HTTP_PERMANENT_REDIRECT,
+                ],
+                true,
+            )
+        ) {
+            $newFileUrl = (string) trim(
+                $response->getHeader('location')->getValue(),
+            );
+            $response = $client->get($newFileUrl, [
+                'headers' => [
+                    'User-Agent' => 'Castopod/' . CP_VERSION,
+                ],
+                'http_errors' => false,
+            ]);
+        }
+        $tmpFilename =
+            time() .
+            '_' .
+            bin2hex(random_bytes(10)) .
+            '.' .
+            pathinfo(parse_url($newFileUrl, PHP_URL_PATH), PATHINFO_EXTENSION);
+        $tmpFilePath = WRITEPATH . 'uploads/' . $tmpFilename;
+
+        file_put_contents($tmpFilePath, $response->getBody());
+        return new \CodeIgniter\Files\File($tmpFilePath);
+    } catch (Exception $ex) {
+        return null;
+    }
 }
 
 /**
