@@ -3,13 +3,14 @@
 
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-unstable";
+    c4.url = "github:fossar/composition-c4";
     # composer2nix = {
     #   url = "github:jbboehr/composer2nix/php-arg-in-default";
     #   flake = false;
     # };
   };
 
-  outputs = { self, nixpkgs }:
+  outputs = { self, nixpkgs, c4 }:
     let
 
       # Generate a user-friendly version numer
@@ -25,32 +26,43 @@
       # Nixpkgs instantiated for supported system types with package overlaid
       nixpkgsBySystem = forAllSystems (system: import nixpkgs {
         inherit system;
-        overlays = [ self.overlay ];
+        overlays = [ self.overlay c4.overlay ];
       });
 
-      package = { inShell ? false, pkgs }:
-        with pkgs;
+      package =
+        { inShell ? false
+        , stdenv
+        , callPackage
+        , c4
+        # , nodejs
+        , php
+        }:
         stdenv.mkDerivation rec {
           pname = "castopod-host";
           inherit version;
 
           src = ./.;
 
-          node-deps = (callPackage ./node2nix {}).nodeDependencies;
+          nodeDeps = (callPackage ./node2nix {}).nodeDependencies;
+
+          composerDeps = c4.fetchComposerDeps { inherit src; };
 
           # TODO .env file
           # TODO php configuration
 
           nativeBuildInputs = [
-            nodejs
+            # nodejs
+            php.packages.composer
+            c4.composerSetupHook
           ];
 
           installPhase = ''
             runHook preInstall
 
             mkdir -p $out/share/castopod-host
+            composer install
+            ln -s ${nodeDeps}/lib/node_modules ./node_modules
             cp -r . $out/share/castopod-host
-            ln -s ${node-deps}/lib/node_modules $out/share/castopod-host/node_modules
 
             runHook postInstall
           '';

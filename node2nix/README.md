@@ -14,11 +14,11 @@ They are:
   - using IFD (import from derivation) to invoke `node2nix` to generate these
     expressions, and then to import them, all during the evaluation of `flake.nix`.
     This has the same result as the method currently used without the manual step,
-    but the IFD requires `nix build --impure` and is thus undesireable. See
-    example [here](https://gist.github.com/sorki/e23c3462f60e0b6a1eaa7d9fc3ac5480)
+    but the IFD doesn't work in restricted mode and requires `nix build --impure`.
+    See [example](https://gist.github.com/sorki/e23c3462f60e0b6a1eaa7d9fc3ac5480).
   - `npmlock2nix` and `nix-npm-buildpackage` are other tools that parse `package.json`
     and `package-lock.json` and provide a derivation for `node_modules` without
-    needing to manual generate files before-hand, but both fail when trying to
+    needing to manually generate files before-hand, but both fail when trying to
     install `esbuild`, which is a dependency of the dev-dependency `vite`. This
     ought to be fixable for `nix-npm-buildpackage` via `packageoverrides`. This
     problem does not afflict `node2nix` because it does not build the
