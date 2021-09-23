@@ -1,0 +1,13 @@
+diff --git a/app/Config/Paths.php b/app/Config/Paths.php
+index 92fcea0..e489a74 100644
+--- a/app/Config/Paths.php
++++ b/app/Config/Paths.php
+@@ -53,7 +53,7 @@ class Paths
+      * for maximum security, keeping it out of the app and/or
+      * system directories.
+      */
+-    public string $writableDirectory = __DIR__ . '/../../writable';
++    public string $writableDirectory = '@stateDir@';
+ 
+     /**
+      * ---------------------------------------------------------------

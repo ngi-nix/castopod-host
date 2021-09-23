@@ -1,0 +1,13 @@
+diff --git a/IpDbGenerate.php b/IpDbGenerate.php
+index b1fc677..2411c2c 100755
+--- a/IpDbGenerate.php
++++ b/IpDbGenerate.php
+@@ -4,7 +4,7 @@
+ /*
+  * Now load in external datacenter list
+  */
+-$rowstr = file_get_contents('https://raw.github.com/client9/ipcat/master/datacenters.csv');
++$rowstr = file_get_contents('@datacenters@');
+ $rows = explode("\n", $rowstr);
+ foreach ($rows as $row) {
+     if (strlen($row) == 0 || $row[0] == '#') {
