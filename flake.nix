@@ -3,24 +3,18 @@
 
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-unstable";
-    npm-buildpackage.url = "github:serokell/nix-npm-buildpackage";
-    # npmlock2nix = {
-    #   url = "github:tweag/npmlock2nix";
-    #   flake = false;
-    # };
     # composer2nix = {
     #   url = "github:jbboehr/composer2nix/php-arg-in-default";
     #   flake = false;
     # };
   };
 
-  outputs = { self, nixpkgs, npm-buildpackage }:
+  outputs = { self, nixpkgs }:
     let
 
       # Generate a user-friendly version numer
       version = "${builtins.substring 0 8 self.lastModifiedDate}-${self.shortRev or "dirty"}";
-      # # TODO automate
-      # version = "v1.0.0-alpha.70";
+      # version = "v1.0.0-alpha.70"; # TODO automate grabbing of this version
 
       # System types to support
       supportedSystems = [ "x86_64-linux" ];
@@ -31,11 +25,7 @@
       # Nixpkgs instantiated for supported system types with package overlaid
       nixpkgsBySystem = forAllSystems (system: import nixpkgs {
         inherit system;
-        overlays = [
-          self.overlay
-          npm-buildpackage.overlay
-          # (final: prev: { nodejs = final.nodejs-16_x; })
-        ];
+        overlays = [ self.overlay ];
       });
 
       package = { inShell ? false, pkgs }:
@@ -46,20 +36,7 @@
 
           src = ./.;
 
-          node2nix-expr = runCommandNoCC "node2nix-${pname}" {
-            buildInputs = [ git ];
-          } ''
-            mkdir $out
-            ${nodePackages.node2nix}/bin/node2nix \
-              --input ${src}/package.json \
-              --lock ${src}/package-lock.json \
-              --node-env $out/node-env.nix \
-              --output $out/node-packages.nix \
-              --composition $out/default.nix \
-          '';
-
-          node-dependencies =
-            (import node2nix-expr { inherit pkgs; inherit (pkgs) nodejs; }).nodeDependencies;
+          node-deps = (callPackage ./node2nix {}).nodeDependencies;
 
           # TODO .env file
           # TODO php configuration
@@ -68,19 +45,12 @@
             nodejs
           ];
 
-          # node-modules = mkNodeModules {
-          #   inherit src pname version;
-          #   packageOverrides = {};
-          #   extraEnvVars = {};
-          # };
-
           installPhase = ''
             runHook preInstall
 
-
             mkdir -p $out/share/castopod-host
             cp -r . $out/share/castopod-host
-            cp -r ${node-dependencies} $out/share/castopod-host/node_modules
+            ln -s ${node-deps}/lib/node_modules $out/share/castopod-host/node_modules
 
             runHook postInstall
           '';
