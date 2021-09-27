@@ -3,14 +3,9 @@
 
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-unstable";
-    c4.url = "github:fossar/composition-c4";
-    # composer2nix = {
-    #   url = "github:jbboehr/composer2nix/php-arg-in-default";
-    #   flake = false;
-    # };
   };
 
-  outputs = { self, nixpkgs, c4 }:
+  outputs = { self, nixpkgs }:
     let
 
       # Generate a user-friendly version numer
@@ -26,47 +21,50 @@
       # Nixpkgs instantiated for supported system types with package overlaid
       nixpkgsBySystem = forAllSystems (system: import nixpkgs {
         inherit system;
-        overlays = [ self.overlay c4.overlay ];
+        overlays = [ self.overlay ];
       });
 
       package =
         { inShell ? false
         , stdenv
         , callPackage
-        , c4
-        # , nodejs
+        , git
         , php
         }:
-        stdenv.mkDerivation rec {
-          pname = "castopod-host";
-          inherit version;
-
+        (callPackage ./nixified-deps/php-composition.nix { noDev = true; }).overrideDerivation ( initial: {
           src = ./.;
+          nativeBuildInputs = initial.nativeBuildInputs ++ [ git ];
+        });
+        # stdenv.mkDerivation rec {
+        #   pname = "castopod-host";
+        #   inherit version;
 
-          nodeDeps = (callPackage ./node2nix {}).nodeDependencies;
+        #   src = ./.;
 
-          composerDeps = c4.fetchComposerDeps { inherit src; };
+        #   nodeDeps = (callPackage ./node2nix {}).nodeDependencies;
 
-          # TODO .env file
-          # TODO php configuration
+        #   # composerDeps = c4.fetchComposerDeps { inherit src; };
 
-          nativeBuildInputs = [
-            # nodejs
-            php.packages.composer
-            c4.composerSetupHook
-          ];
+        #   # TODO .env file
+        #   # TODO php configuration
 
-          installPhase = ''
-            runHook preInstall
+        #   nativeBuildInputs = [
+        #     # nodejs
+        #     # php.packages.composer
+        #     # c4.composerSetupHook
+        #   ];
 
-            mkdir -p $out/share/castopod-host
-            composer install
-            ln -s ${nodeDeps}/lib/node_modules ./node_modules
-            cp -r . $out/share/castopod-host
+        #   installPhase = ''
+        #     runHook preInstall
 
-            runHook postInstall
-          '';
-        };
+        #     mkdir -p $out/share/castopod-host
+        #     # composer install
+        #     ln -s ${nodeDeps}/lib/node_modules ./node_modules
+        #     cp -r . $out/share/castopod-host
+
+        #     runHook postInstall
+        #   '';
+        # };
 
       forAttrs = attrs: f: nixpkgs.lib.mapAttrs f attrs;
 

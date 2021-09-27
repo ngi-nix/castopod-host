@@ -3059,7 +3059,7 @@ let
   args = {
     name = "castopod-host";
     packageName = "castopod-host";
-    version = "1.0.0-alpha.72";
+    version = "1.0.0-alpha.73";
     src = ./..;
     dependencies = [
       (sources."@amcharts/amcharts4-4.10.22" // {
