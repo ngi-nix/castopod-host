@@ -171,3 +171,6 @@ sessions
 castopod-host/
 castopod-host-*.zip
 castopod-host-*.tar.gz
+
+# nix build result
+result

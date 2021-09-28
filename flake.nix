@@ -34,7 +34,7 @@
         , substituteAll
         , applyPatches
         , git
-        , php
+        # , php
         }:
         (callPackage ./nixified-deps/php-composition.nix {
           noDev = true;
@@ -64,14 +64,10 @@
     in {
 
       # A Nixpkgs overlay that adds the package
-      overlay = final: prev: {
-        castopod-host = with final; callPackage package {};
-      };
+      overlay = final: prev: { castopod-host = final.callPackage package {}; };
 
       # The package built against the specified Nixpkgs version
-      packages = forAttrs nixpkgsBySystem (_: pkgs: {
-        inherit (pkgs) castopod-host;
-      });
+      packages = forAttrs nixpkgsBySystem (_: pkgs: { inherit (pkgs) castopod-host;});
 
       # The default package for 'nix build'
       defaultPackage = forAttrs self.packages (_: pkgs: pkgs.castopod-host);
@@ -86,21 +82,51 @@
           cfg = config.services.castopod-host;
         in
         {
-          nixpkgs.overlays = [ self.overlay ];
-
           options.services.castopod-host = {
             enable = mkEnableOption "castopod-host";
           };
 
           config = mkIf cfg.enable {
-            systemd.services.castopod-host = {
-              wantedBy = [ "multi-user.target" ];
-              serviceConfig.ExecStart = "${pkgs.castopod-host}/bin/castopod-host";
+
+            nixpkgs.overlays = [ self.overlay ];
+
+            # systemd.services.castopod-host = {
+            #   wantedBy = [ "multi-user.target" ];
+            #   serviceConfig.ExecStart = "${pkgs.castopod-host}/bin/castopod-host";
+            # };
+            services.httpd = {
+              enable = true;
+              adminAddr = "admin@localhost";
+              enablePHP = true;
+              virtualHosts.localhost.documentRoot = "${pkgs.castopod-host}/public";
             };
           };
         };
 
-      # TODO configuration for container/machine running the module
+      # configuration for container that runs the module
+      nixosConfigurations.container = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [
+          self.nixosModules.castopod-host
+          ({ pkgs, ... }: {
+            boot.isContainer = true;
+
+            # Let 'nixos-version --json' know about the Git revision
+            # of this flake.
+            system.configurationRevision = pkgs.lib.mkIf (self ? rev) self.rev;
+
+            # Network configuration.
+            networking.useDHCP = false;
+            networking.firewall.allowedTCPPorts = [ 80 ];
+
+            # Enable the castopod service
+            services.castopod-host = {
+              enable = true;
+            };
+          })
+        ];
+      };
+
 
       # TODO Tests run by 'nix flake check' and by Hydra
     };
