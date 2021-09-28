@@ -30,7 +30,6 @@
 
       package =
         { inShell ? false
-        # , stdenv
         , callPackage
         , substituteAll
         , applyPatches
@@ -49,39 +48,16 @@
             };
           };
         }).overrideAttrs (initial: rec {
+          name = "castopod-host-${version}";
           src = ./.;
           nativeBuildInputs = initial.nativeBuildInputs or [] ++ [ git ];
-        });
-        # stdenv.mkDerivation rec {
-        #   pname = "castopod-host";
-        #   inherit version;
-
-        #   src = ./.;
-
-        #   nodeDeps = (callPackage ./node2nix {}).nodeDependencies;
-
-        #   # composerDeps = c4.fetchComposerDeps { inherit src; };
-
+          nodeDeps = (callPackage ./nixified-deps/node-composition.nix {}).nodeDependencies;
+          postInstall = ''
+            ln -s ${nodeDeps}/lib/node_modules $out/node_modules
+          '';
         #   # TODO .env file
         #   # TODO php configuration
-
-        #   nativeBuildInputs = [
-        #     # nodejs
-        #     # php.packages.composer
-        #     # c4.composerSetupHook
-        #   ];
-
-        #   installPhase = ''
-        #     runHook preInstall
-
-        #     mkdir -p $out/share/castopod-host
-        #     # composer install
-        #     ln -s ${nodeDeps}/lib/node_modules ./node_modules
-        #     cp -r . $out/share/castopod-host
-
-        #     runHook postInstall
-        #   '';
-        # };
+        });
 
       forAttrs = attrs: f: nixpkgs.lib.mapAttrs f attrs;
 

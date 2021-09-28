@@ -7,7 +7,7 @@ nix shell github:NixOS/nixpkgs/nixos-unstable#nodePackages.node2nix --command \
              --composition nixified-deps/node-composition.nix \
              --node-env nixified-deps/node-env.nix
 
-nix shell github:NixOS/nixpkgs/nixos-unstable#nix-prefetch-scripts ~/repos/composer2nix --show-trace --command \
+nix shell github:NixOS/nixpkgs/nixos-unstable#nix-prefetch-scripts github:charlieshanley/composer2nix --command \
     composer2nix --config-file composer.json \
                  --lock-file composer.lock \
                  --no-dev \
