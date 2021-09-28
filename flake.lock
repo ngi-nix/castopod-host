@@ -1,5 +1,21 @@
 {
   "nodes": {
+    "ipcat": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1556240971,
+        "narHash": "sha256-Wgu3rwllJw1VQBq/hxZ1mAkIyP+3l5BEflwURWGsC9Q=",
+        "owner": "client9",
+        "repo": "ipcat",
+        "rev": "3a1f8cf50dc145c5c08eddee1ae922dac0076ea6",
+        "type": "github"
+      },
+      "original": {
+        "owner": "client9",
+        "repo": "ipcat",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1631962327,
@@ -17,6 +33,7 @@
     },
     "root": {
       "inputs": {
+        "ipcat": "ipcat",
         "nixpkgs": "nixpkgs"
       }
     }

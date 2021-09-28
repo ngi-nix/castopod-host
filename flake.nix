@@ -3,9 +3,13 @@
 
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-unstable";
+    ipcat = {
+      url = "github:client9/ipcat";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs }:
+  outputs = { self, nixpkgs, ipcat }:
     let
 
       # Generate a user-friendly version numer
@@ -26,14 +30,27 @@
 
       package =
         { inShell ? false
-        , stdenv
+        # , stdenv
         , callPackage
+        , substituteAll
+        , applyPatches
         , git
         , php
         }:
-        (callPackage ./nixified-deps/php-composition.nix { noDev = true; }).overrideDerivation ( initial: {
+        (callPackage ./nixified-deps/php-composition.nix {
+          noDev = true;
+          packageOverrides = {
+            "podlibre/ipcat" = oldPkg: applyPatches {
+              src = oldPkg;
+              patches = [(substituteAll {
+                src = ./nixified-deps/datacenters.patch;
+                datacenters = "${ipcat}/datacenters.csv";
+              })];
+            };
+          };
+        }).overrideAttrs (initial: rec {
           src = ./.;
-          nativeBuildInputs = initial.nativeBuildInputs ++ [ git ];
+          nativeBuildInputs = initial.nativeBuildInputs or [] ++ [ git ];
         });
         # stdenv.mkDerivation rec {
         #   pname = "castopod-host";

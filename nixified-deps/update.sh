@@ -7,15 +7,10 @@ nix shell github:NixOS/nixpkgs/nixos-unstable#nodePackages.node2nix --command \
              --composition nixified-deps/node-composition.nix \
              --node-env nixified-deps/node-env.nix
 
-nix shell github:NixOS/nixpkgs/nixos-unstable#nix-prefetch-scripts github:samuelludwig/composer2nix/flakeify --command \
+nix shell github:NixOS/nixpkgs/nixos-unstable#nix-prefetch-scripts ~/repos/composer2nix --show-trace --command \
     composer2nix --config-file composer.json \
                  --lock-file composer.lock \
                  --no-dev \
                  --output nixified-deps/php-packages.nix \
                  --composition nixified-deps/php-composition.nix \
                  --composer-env nixified-deps/composer-env.nix
-
-for p in nixified-deps/patches/*.patch; do
-    echo "Applying patch $p"
-    cat $p | patch -p1
-done
