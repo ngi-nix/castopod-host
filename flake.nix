@@ -7,9 +7,10 @@
       url = "github:client9/ipcat";
       flake = false;
     };
+    nix-filter.url = "github:numtide/nix-filter";
   };
 
-  outputs = { self, nixpkgs, ipcat }:
+  outputs = { self, nixpkgs, ipcat, nix-filter }:
     let
 
       # Generate a user-friendly version numer
@@ -28,15 +29,47 @@
         overlays = [ self.overlay ];
       });
 
+      defaultEnvFile = ''
+        CI_ENVIRONMENT="development"
+
+        app.forceGlobalSecureRequests=false
+
+        app.baseURL="http://localhost:8080/"
+        app.mediaBaseURL="http://localhost:8080/"
+
+        app.adminGateway="cp-admin"
+        app.authGateway="cp-auth"
+
+        database.default.hostname="mariadb"
+        database.default.database="castopod"
+        database.default.username="podlibre"
+        database.default.password="castopod"
+
+        # cache.handler="redis"
+        # cache.redis.host = "redis"
+        cache.handler="file"
+      '';
+
       package =
         { inShell ? false
+        , git
         , callPackage
         , substituteAll
         , applyPatches
-        , git
-        # , php
+        , writeText
+        , envFile ? defaultEnvFile
+        , lib
+        , pkgs
         }:
-        (callPackage ./nixified-deps/php-composition.nix {
+        let
+          nodeDeps = (import ./nixified-deps/node-composition.nix { inherit pkgs; })
+            .nodeDependencies.override (_: {
+              src = nix-filter.lib { root = ./.; include = [ "package.json" "package-lock.json" ]; };
+            });
+          envFile' = if lib.isString envFile then writeText ".env" envFile
+            else if lib.isStorePath then envFile
+            else throw "arg `envFile` must be a string or store path";
+        in (callPackage ./nixified-deps/php-composition.nix {
           noDev = true;
           packageOverrides = {
             "podlibre/ipcat" = oldPkg: applyPatches {
@@ -49,13 +82,15 @@
           };
         }).overrideAttrs (initial: rec {
           name = "castopod-host-${version}";
-          src = ./.;
+          src = nix-filter.lib {
+            root = ./.;
+            exclude = [".git" "result" "flake.nix" "flake.lock" "nixified-deps"];
+          };
           nativeBuildInputs = initial.nativeBuildInputs or [] ++ [ git ];
-          nodeDeps = (callPackage ./nixified-deps/node-composition.nix {}).nodeDependencies;
           postInstall = ''
             ln -s ${nodeDeps}/lib/node_modules $out/node_modules
+            ln -s ${envFile'} $out/.env
           '';
-        #   # TODO .env file
         #   # TODO php configuration
         });
 
@@ -78,29 +113,39 @@
       # A NixOS module
       nixosModules.castopod-host = { config, pkgs, lib, ... }:
         let
-          inherit (lib) mkEnableOption mkIf;
+          inherit (lib) mkOption mkEnableOption mkIf types;
           cfg = config.services.castopod-host;
         in
         {
           options.services.castopod-host = {
             enable = mkEnableOption "castopod-host";
-          };
-
-          config = mkIf cfg.enable {
-
-            nixpkgs.overlays = [ self.overlay ];
-
-            # systemd.services.castopod-host = {
-            #   wantedBy = [ "multi-user.target" ];
-            #   serviceConfig.ExecStart = "${pkgs.castopod-host}/bin/castopod-host";
-            # };
-            services.httpd = {
-              enable = true;
-              adminAddr = "admin@localhost";
-              enablePHP = true;
-              virtualHosts.localhost.documentRoot = "${pkgs.castopod-host}/public";
+            envFile = mkOption {
+              type = with types; either string path; # TODO attrsOf str?
+              default = defaultEnvFile;
+              description = ''
+                File or string with contents of a .env file.
+                For more info see: https://codeigniter.com/user_guide/general/configuration.html...
+              '';
             };
           };
+
+          config = mkIf cfg.enable
+            (let castopod-host = pkgs.castopod-host.override {
+                 };
+            in {
+              nixpkgs.overlays = [ self.overlay ];
+
+              # systemd.services.castopod-host = {
+              #   wantedBy = [ "multi-user.target" ];
+              #   serviceConfig.ExecStart = "${pkgs.castopod-host}/bin/castopod-host";
+              # };
+              services.httpd = {
+                enable = true;
+                adminAddr = "admin@localhost";
+                enablePHP = true;
+                virtualHosts.localhost.documentRoot = "${pkgs.castopod-host}/public";
+              };
+            });
         };
 
       # configuration for container that runs the module
