@@ -52,44 +52,54 @@
 
       package =
         { inShell ? false
+        , envFile ? defaultEnvFile
+        , stateDir ? "/var/lib/castopod-host"
         , git
         , callPackage
         , substituteAll
         , applyPatches
         , writeText
-        , envFile ? defaultEnvFile
         , lib
         , pkgs
         }:
         let
-          nodeDeps = (import ./nixified-deps/node-composition.nix { inherit pkgs; })
+          nodeDeps = (import ./nix/node-composition.nix { inherit pkgs; })
             .nodeDependencies.override (_: {
               src = nix-filter.lib { root = ./.; include = [ "package.json" "package-lock.json" ]; };
             });
           envFile' = if lib.isString envFile then writeText ".env" envFile
-            else if lib.isStorePath then envFile
+            else if lib.isStorePath envFile then envFile
             else throw "arg `envFile` must be a string or store path";
-        in (callPackage ./nixified-deps/php-composition.nix {
+        in (callPackage ./nix/php-composition.nix {
           noDev = true;
           packageOverrides = {
             "podlibre/ipcat" = oldPkg: applyPatches {
               src = oldPkg;
               patches = [(substituteAll {
-                src = ./nixified-deps/datacenters.patch;
+                src = ./nix/datacenters.patch;
                 datacenters = "${ipcat}/datacenters.csv";
               })];
             };
           };
         }).overrideAttrs (initial: rec {
           name = "castopod-host-${version}";
-          src = nix-filter.lib {
-            root = ./.;
-            exclude = [".git" "result" "flake.nix" "flake.lock" "nixified-deps"];
+          src = applyPatches {
+            name = "source";
+            src = nix-filter.lib {
+              root = ./.;
+              exclude = [".git" "result" "flake.nix" "flake.lock" "nix"];
+            };
+            patches = [
+              (substituteAll { src = ./nix/stateDir.patch; inherit stateDir; })
+            ];
           };
           nativeBuildInputs = initial.nativeBuildInputs or [] ++ [ git ];
           postInstall = ''
             ln -s ${nodeDeps}/lib/node_modules $out/node_modules
             ln -s ${envFile'} $out/.env
+
+            mv $out/public/media $out/public/~media
+            ln -s ${stateDir}/media $out/public/media
           '';
         #   # TODO php configuration
         });
@@ -114,6 +124,7 @@
       nixosModules.castopod-host = { config, pkgs, lib, ... }:
         let
           inherit (lib) mkOption mkEnableOption mkIf types;
+          inherit (pkgs) writeShellScript php rsync;
           cfg = config.services.castopod-host;
         in
         {
@@ -127,25 +138,68 @@
                 For more info see: https://codeigniter.com/user_guide/general/configuration.html...
               '';
             };
+            stateDir = mkOption {
+              type = types.path;
+              default = "/var/lib/castopod-host";
+              description = ''
+                Path for Castopod-host to use as the readable/writable state directory
+              '';
+            };
           };
 
-          config = mkIf cfg.enable
-            (let castopod-host = pkgs.castopod-host.override {
-                 };
+          config = mkIf cfg.enable (
+            let castopod-host = pkgs.castopod-host.override {
+                  envFile = cfg.envFile;
+                  stateDir = cfg.stateDir;
+                };
             in {
               nixpkgs.overlays = [ self.overlay ];
 
-              # systemd.services.castopod-host = {
-              #   wantedBy = [ "multi-user.target" ];
-              #   serviceConfig.ExecStart = "${pkgs.castopod-host}/bin/castopod-host";
+              systemd =
+                let primary = "castopod-host";
+                    periodic = "castopod-host-scheduled-activities";
+                in {
+                  services = {
+                    ${primary} = {
+                      description = "Castopod-host server";
+                      wantedBy = [ "multi-user.target" ];
+                      path = [ rsync ];
+                      serviceConfig = {
+                        ExecStartPre = writeShellScript "prep-castopod-host" ''
+                          rsync -ru ${castopod-host}/writable/ ${cfg.stateDir}/
+                          rsync -ru ${castopod-host}/public/~media/ ${cfg.stateDir}/media/
+                        '';
+                        ExecStart = "${php}/bin/php ${castopod-host}/spark serve --host 0.0.0.0";
+                      };
+                    };
+                    ${periodic} = {
+                      description = "Castopod-host scheduled activities";
+                      serviceConfig = {
+                        Type = "oneshot";
+                        ExecStart = "${php}/bin/php ${castopod-host}/public/index.php scheduled-activities";
+                      };
+                    };
+                  };
+                  timers.${periodic} = {
+                    description = "Timer for Castopod-host scheduled activities";
+                    wantedBy = [ "timers.target" ];
+                    requires = [ "${primary}.service" ];
+                    timerConfig = {
+                      OnActiveSec = "0";
+                      OnUnitActiveSec = "60";
+                      Unit = [ "${periodic}.service" ];
+                    };
+                  };
+                };
+
+              # services.httpd = {
+              #   enable = true;
+              #   adminAddr = "admin@localhost";
+              #   enablePHP = true;
+              #   virtualHosts.localhost.documentRoot = "${castopod-host}/public";
               # };
-              services.httpd = {
-                enable = true;
-                adminAddr = "admin@localhost";
-                enablePHP = true;
-                virtualHosts.localhost.documentRoot = "${pkgs.castopod-host}/public";
-              };
-            });
+            }
+          );
         };
 
       # configuration for container that runs the module

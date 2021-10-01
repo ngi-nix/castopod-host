@@ -3,7 +3,7 @@ This directory contains nix expressions generated from `package.json`,
 in a nix-friendly way, and are used to generate `node_modules` and `vendor` in
 the build described by `flake.nix`.
 
-These expressions should be kept up-to-date by running `nixified-deps/update.sh`
+These expressions should be kept up-to-date by running `nix/update-nixified-deps.sh`
 (from the project root dir). The script requires flakes-enabled nix to be installed,
 but other than that provisions its own dependencies.
 
