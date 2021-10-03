@@ -40,10 +40,10 @@
         app.adminGateway="cp-admin"
         app.authGateway="cp-auth"
 
-        database.default.hostname="mariadb"
+        database.default.hostname="localhost"
         database.default.database="castopod"
         database.default.username="podlibre"
-        database.default.password="castopod"
+        # database.default.password="castopod"
 
         # cache.handler="redis"
         # cache.redis.host = "redis"
@@ -123,21 +123,17 @@
       # A NixOS module
       nixosModules.castopod-host = { config, pkgs, lib, ... }:
         let
-          inherit (lib) mkOption mkEnableOption mkIf types;
-          inherit (pkgs) writeShellScript php rsync;
+          inherit (lib) mkOption mkEnableOption mkIf mkDefault types;
+          inherit (pkgs) castopod-host writeShellScript php rsync mariadb;
           cfg = config.services.castopod-host;
+          package = castopod-host.override {
+            envFile = cfg.envFile;
+            stateDir = cfg.stateDir;
+          };
         in
         {
           options.services.castopod-host = {
             enable = mkEnableOption "castopod-host";
-            envFile = mkOption {
-              type = with types; either string path; # TODO attrsOf str?
-              default = defaultEnvFile;
-              description = ''
-                File or string with contents of a .env file.
-                For more info see: https://codeigniter.com/user_guide/general/configuration.html...
-              '';
-            };
             stateDir = mkOption {
               type = types.path;
               default = "/var/lib/castopod-host";
@@ -145,61 +141,97 @@
                 Path for Castopod-host to use as the readable/writable state directory
               '';
             };
+            database = mkOption {
+              type = types.str;
+              default = "castopod";
+              description = "Database name";
+            };
+            user = mkOption {
+              type = types.str;
+              default = "podlibre";
+              description = "Unix user corresponding to database user";
+            };
+            envFile = mkOption {
+              type = with types; either lines path; # TODO attrsOf str?
+              default = defaultEnvFile;
+              description = ''
+                File or string with contents of a .env file.
+                For more info see: https://codeigniter.com/user_guide/general/configuration.html...
+              '';
+            };
           };
 
-          config = mkIf cfg.enable (
-            let castopod-host = pkgs.castopod-host.override {
-                  envFile = cfg.envFile;
-                  stateDir = cfg.stateDir;
-                };
-            in {
-              nixpkgs.overlays = [ self.overlay ];
-
-              systemd =
-                let primary = "castopod-host";
-                    periodic = "castopod-host-scheduled-activities";
-                in {
-                  services = {
-                    ${primary} = {
-                      description = "Castopod-host server";
-                      wantedBy = [ "multi-user.target" ];
-                      path = [ rsync ];
-                      serviceConfig = {
-                        ExecStartPre = writeShellScript "prep-castopod-host" ''
-                          rsync -ru ${castopod-host}/writable/ ${cfg.stateDir}/
-                          rsync -ru ${castopod-host}/public/~media/ ${cfg.stateDir}/media/
-                        '';
-                        ExecStart = "${php}/bin/php ${castopod-host}/spark serve --host 0.0.0.0";
-                      };
-                    };
-                    ${periodic} = {
-                      description = "Castopod-host scheduled activities";
-                      serviceConfig = {
-                        Type = "oneshot";
-                        ExecStart = "${php}/bin/php ${castopod-host}/public/index.php scheduled-activities";
-                      };
+          config = mkIf cfg.enable {
+            nixpkgs.overlays = [ self.overlay ];
+            systemd =
+              let primary = "castopod-host";
+                  prep = "castopod-host-prep";
+                  periodic = "castopod-host-scheduled-activities";
+              in {
+                services = {
+                  ${prep} = {
+                    description = "Castopod-host prep";
+                    wantedBy = [ "multi-user.target" ];
+                    path = [ rsync ];
+                    serviceConfig.ExecStart = writeShellScript "prep-castopod-host" ''
+                      rsync -ru ${package}/writable/ ${cfg.stateDir}/
+                      rsync -ru ${package}/public/~media/ ${cfg.stateDir}/media/
+                      chown -R ${cfg.user} ${cfg.stateDir}
+                      chmod -R 755 ${cfg.stateDir}
+                    '';
+                  };
+                  ${primary} = {
+                    description = "Castopod-host server";
+                    wantedBy = [ "multi-user.target" ];
+                    requires = [ "${prep}.service" ];
+                    serviceConfig = {
+                      User = cfg.user;
+                      ExecStart = "${php}/bin/php ${package}/spark serve --host 0.0.0.0";
                     };
                   };
-                  timers.${periodic} = {
-                    description = "Timer for Castopod-host scheduled activities";
-                    wantedBy = [ "timers.target" ];
-                    requires = [ "${primary}.service" ];
-                    timerConfig = {
-                      OnActiveSec = "0";
-                      OnUnitActiveSec = "60";
-                      Unit = [ "${periodic}.service" ];
+                  ${periodic} = {
+                    description = "Castopod-host scheduled activities";
+                    serviceConfig = {
+                      Type = "oneshot";
+                      User = cfg.user;
+                      ExecStart = "${php}/bin/php ${package}/public/index.php scheduled-activities";
                     };
                   };
                 };
+                timers.${periodic} = {
+                  description = "Timer for Castopod-host scheduled activities";
+                  wantedBy = [ "timers.target" ];
+                  requires = [ "${primary}.service" ];
+                  timerConfig = {
+                    OnActiveSec = "0";
+                    OnUnitActiveSec = "60";
+                    Unit = [ "${periodic}.service" ];
+                  };
+                };
+              };
+            users.users.${cfg.user} = {
+              group = cfg.user;
+              isSystemUser = true;
+              createHome = false;
+            };
+            services.mysql = { # mkIf cfg.database.createLocally {
+              enable = true;
+              package = mkDefault mariadb;
+              ensureDatabases = [ cfg.database ];
+              ensureUsers = [{
+                name = cfg.user;
+                ensurePermissions = { "${cfg.database}.*" = "ALL PRIVILEGES"; };
+              }];
+            };
 
-              # services.httpd = {
-              #   enable = true;
-              #   adminAddr = "admin@localhost";
-              #   enablePHP = true;
-              #   virtualHosts.localhost.documentRoot = "${castopod-host}/public";
-              # };
-            }
-          );
+
+            # services.httpd = {
+            #   enable = true;
+            #   adminAddr = "admin@localhost";
+            #   enablePHP = true;
+            #   virtualHosts.localhost.documentRoot = "${castopod-host}/public";
+            # };
+          };
         };
 
       # configuration for container that runs the module
@@ -216,7 +248,7 @@
 
             # Network configuration.
             networking.useDHCP = false;
-            networking.firewall.allowedTCPPorts = [ 80 ];
+            networking.firewall.allowedTCPPorts = [ 8080 ];
 
             # Enable the castopod service
             services.castopod-host = {
