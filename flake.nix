@@ -58,18 +58,43 @@
         }:
         let
           inherit (pkgs) callPackage substituteAll applyPatches writeText lib
-                         fetchFromGitHub git nodePackages;
-          nodeDeps = (import ./nix/node-composition.nix { inherit pkgs; })
-            .nodeDependencies.override (_: {
-              src = nix-filter.lib { root = ./.; include = [ "package.json" "package-lock.json" ]; };
-            });
-          envFile' = if lib.isString envFile then writeText ".env" envFile
-            else if lib.isStorePath envFile then envFile
-            else throw "arg `envFile` must be a string or store path";
-        in (callPackage ./nix/php-composition.nix {
-          noDev = true;
-          packageOverrides = {
-            "podlibre/ipcat" = oldPkg: applyPatches {
+                         fetchFromGitHub fetchurl buildGoModule git nodePackages;
+          inherit (builtins) partition head;
+          cleanSrc = nix-filter.lib {
+            root = ./.;
+            exclude = [".git" "result" "flake.nix" "flake.lock" "nix"];
+          };
+          patchedCleanSrc = applyPatches {
+            name = "source";
+            src = cleanSrc;
+            patches = [
+              (substituteAll { src = ./nix/stateDir.patch; inherit stateDir; })
+            ];
+          };
+          nodeComp = import ./nix/node-composition.nix { inherit pkgs; };
+          esbuild = buildGoModule rec {
+            pname = "esbuild";
+            version = "0.12.12";
+            src = fetchFromGitHub {
+              owner = "evanw";
+              repo = "esbuild";
+              rev = "v${version}";
+              sha256 = "sha256-4Ooadv8r6GUBiayiv4WKVurUeRPIv6LPlMhieH4VL8o=";
+            };
+            vendorSha256 = "sha256-2ABWPqhK2Cf4ipQH7XvRrd+ZscJhYPc3SV2cGT0apdg=";
+          };
+          npmPackage = nodeComp.package.override {
+            src = patchedCleanSrc;
+            npmFlags = "--ignore-scripts";
+            ESBUILD_BINARY_PATH = "${esbuild}/bin/esbuild";
+            postInstall = ''
+              npm run build
+              npm run build:static
+            '';
+          };
+          phpPackage = callPackage ./nix/php-composition.nix {
+            noDev = true;
+            packageOverrides."podlibre/ipcat" = oldPkg: applyPatches {
               src = oldPkg;
               patches = [(substituteAll {
                 src = ./nix/datacenters.patch;
@@ -77,32 +102,21 @@
               })];
             };
           };
-        }).overrideAttrs (initial: rec {
-          name = "castopod-host-${version}";
-          src = applyPatches {
-            name = "source";
-            src = nix-filter.lib {
-              root = ./.;
-              exclude = [".git" "result" "flake.nix" "flake.lock" "nix"];
-            };
-            patches = [
-              (substituteAll { src = ./nix/stateDir.patch; inherit stateDir; })
-            ];
-          };
-          nativeBuildInputs = initial.nativeBuildInputs or [] ++ [ git nodePackages.npm ];
-          postInstall = ''
-            ln -s ${nodeDeps}/lib/node_modules $out/node_modules
-            export PATH="${nodeDeps}/bin:$PATH"
-            echo $PATH
-            npm run build:static
-
-            ln -s ${envFile'} $out/.env
-
-            mv $out/public/media $out/public/~media
-            ln -s ${stateDir}/media $out/public/media
-          '';
-        #   # TODO php configuration
-        });
+          envFile' = if lib.isString envFile then writeText ".env" envFile
+            else if lib.isStorePath envFile then envFile
+            else throw "arg `envFile` must be a string or store path";
+        in
+          phpPackage.overrideAttrs (initial: rec {
+            name = "castopod-host-${version}";
+            src = "${npmPackage}/lib/node_modules/castopod-host";
+            nativeBuildInputs = initial.nativeBuildInputs or [] ++ [ git ];
+            postInstall = ''
+              ln -s ${envFile'} $out/.env
+              mv $out/public/media $out/public/~media
+              ln -s ${stateDir}/media $out/public/media
+            '';
+          #   # TODO php configuration
+          });
 
       forAttrs = attrs: f: nixpkgs.lib.mapAttrs f attrs;
 
