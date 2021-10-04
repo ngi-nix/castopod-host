@@ -1,13 +1,22 @@
-#!/bin/sh
+#!/usr/bin/env nix-shell
+#!nix-shell -i bash -p jq nix-prefetch-scripts nodePackages.node2nix
 
-nix shell github:NixOS/nixpkgs/nixos-unstable#nodePackages.node2nix --command \
-    node2nix --input package.json \
-             --lock package-lock.json \
-             --output nix/node-packages.nix \
-             --composition nix/node-composition.nix \
-             --node-env nix/node-env.nix
+# Add two dev deps to deps so that we can use them without building all dev deps,
+# some of which don't work
+cat package-lock.json \
+    | jq '.packages."".dependencies += {svgo: .packages."".devDependencies.svgo, "cpy-cli": .packages."".devDependencies."cpy-cli"}' \
+    > nix/package-lock.json
+cat package.json \
+    | jq '.dependencies += {svgo: .devDependencies.svgo, "cpy-cli": .devDependencies."cpy-cli"}' \
+    > nix/package.json
 
-nix shell github:NixOS/nixpkgs/nixos-unstable#nix-prefetch-scripts github:charlieshanley/composer2nix --command \
+node2nix --input nix/package.json \
+         --lock nix/package-lock.json \
+         --output nix/node-packages.nix \
+         --composition nix/node-composition.nix \
+         --node-env nix/node-env.nix
+
+nix shell github:charlieshanley/composer2nix --command \
     composer2nix --config-file composer.json \
                  --lock-file composer.lock \
                  --no-dev \

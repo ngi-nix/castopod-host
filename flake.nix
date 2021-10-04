@@ -54,15 +54,11 @@
         { inShell ? false
         , envFile ? defaultEnvFile
         , stateDir ? "/var/lib/castopod-host"
-        , git
-        , callPackage
-        , substituteAll
-        , applyPatches
-        , writeText
-        , lib
         , pkgs
         }:
         let
+          inherit (pkgs) callPackage substituteAll applyPatches writeText lib
+                         fetchFromGitHub git nodePackages;
           nodeDeps = (import ./nix/node-composition.nix { inherit pkgs; })
             .nodeDependencies.override (_: {
               src = nix-filter.lib { root = ./.; include = [ "package.json" "package-lock.json" ]; };
@@ -93,9 +89,13 @@
               (substituteAll { src = ./nix/stateDir.patch; inherit stateDir; })
             ];
           };
-          nativeBuildInputs = initial.nativeBuildInputs or [] ++ [ git ];
+          nativeBuildInputs = initial.nativeBuildInputs or [] ++ [ git nodePackages.npm ];
           postInstall = ''
             ln -s ${nodeDeps}/lib/node_modules $out/node_modules
+            export PATH="${nodeDeps}/bin:$PATH"
+            echo $PATH
+            npm run build:static
+
             ln -s ${envFile'} $out/.env
 
             mv $out/public/media $out/public/~media
@@ -127,8 +127,17 @@
           inherit (pkgs) castopod-host writeShellScript php rsync mariadb;
           cfg = config.services.castopod-host;
           package = castopod-host.override {
-            envFile = cfg.envFile;
             stateDir = cfg.stateDir;
+            envFile = ''
+              database.default.hostname="localhost"
+              database.default.database="${cfg.database}"
+              database.default.username="${cfg.user}"
+
+              ${if cfg.development then "CI_ENVIRONMENT=\"development\"" else ""}
+              app.forceGlobalSecureRequests=${if cfg.forceHttps then "true" else "false"}
+
+              ${cfg.extraConfig}
+            '';
           };
         in
         {
@@ -151,11 +160,21 @@
               default = "podlibre";
               description = "Unix user corresponding to database user";
             };
-            envFile = mkOption {
-              type = with types; either lines path; # TODO attrsOf str?
-              default = defaultEnvFile;
+            development = mkOption {
+              type = types.bool;
+              default = false;
+              description = "Run CodeIgniter in development mode";
+            };
+            forceHttps = mkOption {
+              type = types.bool;
+              default = false;
+              description = "If true, redirects all http requests to use https";
+            };
+            extraConfig = mkOption {
+              type = types.lines;
+              default = "";
               description = ''
-                File or string with contents of a .env file.
+                Lines to add to the .env file.
                 For more info see: https://codeigniter.com/user_guide/general/configuration.html...
               '';
             };
@@ -173,20 +192,29 @@
                     description = "Castopod-host prep";
                     wantedBy = [ "multi-user.target" ];
                     path = [ rsync ];
-                    serviceConfig.ExecStart = writeShellScript "prep-castopod-host" ''
-                      rsync -ru ${package}/writable/ ${cfg.stateDir}/
-                      rsync -ru ${package}/public/~media/ ${cfg.stateDir}/media/
-                      chown -R ${cfg.user} ${cfg.stateDir}
-                      chmod -R 755 ${cfg.stateDir}
-                    '';
+                    serviceConfig = {
+                      Type = "oneshot";
+                      ExecStart = writeShellScript "prep-castopod-host" ''
+                        rsync -ru ${package}/writable/ ${cfg.stateDir}/
+                        rsync -ru ${package}/public/~media/ ${cfg.stateDir}/media/
+                        chown -R ${cfg.user} ${cfg.stateDir}
+                        chmod -R 700 ${cfg.stateDir}
+                      '';
+                    };
                   };
                   ${primary} = {
                     description = "Castopod-host server";
                     wantedBy = [ "multi-user.target" ];
-                    requires = [ "${prep}.service" ];
+                    requires = [ "${prep}.service" "mysql.service" ];
+                    after = [ "${prep}.service" "mysql.service" ];
                     serviceConfig = {
                       User = cfg.user;
-                      ExecStart = "${php}/bin/php ${package}/spark serve --host 0.0.0.0";
+                      WorkingDirectory = package;
+                      ExecStartPre = writeShellScript "castopod-host-init-db" ''
+                        ${php}/bin/php spark migrate -all
+                        ${php}/bin/php spark db:seed AppSeeder
+                      '';
+                      ExecStart = "${php}/bin/php spark serve --host 0.0.0.0";
                     };
                   };
                   ${periodic} = {
@@ -194,7 +222,8 @@
                     serviceConfig = {
                       Type = "oneshot";
                       User = cfg.user;
-                      ExecStart = "${php}/bin/php ${package}/public/index.php scheduled-activities";
+                      WorkingDirectory = package;
+                      ExecStart = "${php}/bin/php public/index.php scheduled-activities";
                     };
                   };
                 };
@@ -202,6 +231,7 @@
                   description = "Timer for Castopod-host scheduled activities";
                   wantedBy = [ "timers.target" ];
                   requires = [ "${primary}.service" ];
+                  after = [ "${primary}.service" ];
                   timerConfig = {
                     OnActiveSec = "0";
                     OnUnitActiveSec = "60";
