@@ -140,6 +140,7 @@
           inherit (lib) mkOption mkEnableOption mkIf mkDefault types optionalString;
           inherit (pkgs) castopod-host writeShellScript php rsync mariadb;
           cfg = config.services.castopod-host;
+          mediaBaseUrl = cfg.mediaBaseUrl or cfg.baseUrl;
           package = castopod-host.override {
             stateDir = cfg.stateDir;
             envFile = ''
@@ -151,7 +152,7 @@
               app.forceGlobalSecureRequests=${if cfg.forceHttps then "true" else "false"}
 
               app.baseURL="${cfg.baseUrl}"
-              app.mediaBaseURL="${cfg.mediaBaseUrl}"
+              app.mediaBaseURL="${mediaBaseUrl}"
 
               cache.handler="file" # TODO permit redis
 
@@ -196,8 +197,8 @@
             };
             mediaBaseUrl = mkOption {
               type = types.str;
-              default =  "http://localhost/";
-              description = "Media base URL";
+              default = config.services.castopod-host.baseUrl;
+              description = "Media base URL. If not provided, baseUrl is used.";
             };
             extraConfig = mkOption {
               type = types.lines;
@@ -235,7 +236,7 @@
                       ExecStartPre = writeShellScript "castopod-host-prep-statedir" ''
                         rsync -ru ${package}/writable/ ${cfg.stateDir}/
                         rsync -ru ${package}/public/~media/ ${cfg.stateDir}/media/
-                        chgrp -R ${cfg.user} ${cfg.stateDir}
+                        chown -R ${cfg.user} ${cfg.stateDir}
                         chmod -R 770 ${cfg.stateDir}
                       '';
                       ExecStart = writeShellScript "castopod-host-init-db" ''
@@ -266,12 +267,10 @@
                   };
                 };
               };
-            users = {
-              users.${cfg.user} = {
-                isSystemUser = true;
-                createHome = false;
-              };
-              groups.${cfg.user}.members = [ cfg.user config.services.httpd.user ];
+            users.users.${cfg.user} = {
+              group = cfg.user;
+              isSystemUser = true;
+              createHome = false;
             };
             services.mysql = { # mkIf cfg.database.createLocally {
               enable = true;
@@ -284,6 +283,7 @@
             };
             services.httpd = {
               enable = true;
+              user = cfg.user; # TODO is this a bad idea?
               adminAddr = "admin@localhost";
               enablePHP = true;
               extraModules = [ "rewrite" ];
@@ -324,6 +324,7 @@
             services.castopod-host = {
               enable = true;
               development = true;
+              baseUrl = "http://castopod/";
               # adminAddr = "admin@localhost";
             };
           })
