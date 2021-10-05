@@ -137,7 +137,7 @@
       # A NixOS module
       nixosModules.castopod-host = { config, pkgs, lib, ... }:
         let
-          inherit (lib) mkOption mkEnableOption mkIf mkDefault types;
+          inherit (lib) mkOption mkEnableOption mkIf mkDefault types optionalString;
           inherit (pkgs) castopod-host writeShellScript php rsync mariadb;
           cfg = config.services.castopod-host;
           package = castopod-host.override {
@@ -147,8 +147,13 @@
               database.default.database="${cfg.database}"
               database.default.username="${cfg.user}"
 
-              ${if cfg.development then "CI_ENVIRONMENT=\"development\"" else ""}
+              ${optionalString cfg.development "CI_ENVIRONMENT=\"development\""}
               app.forceGlobalSecureRequests=${if cfg.forceHttps then "true" else "false"}
+
+              app.baseURL="${cfg.baseUrl}"
+              app.mediaBaseURL="${cfg.mediaBaseUrl}"
+
+              cache.handler="file" # TODO permit redis
 
               ${cfg.extraConfig}
             '';
@@ -184,6 +189,16 @@
               default = false;
               description = "If true, redirects all http requests to use https";
             };
+            baseUrl = mkOption {
+              type = types.str;
+              default = "http://localhost/";
+              description = "Base URL";
+            };
+            mediaBaseUrl = mkOption {
+              type = types.str;
+              default =  "http://localhost/";
+              description = "Media base URL";
+            };
             extraConfig = mkOption {
               type = types.lines;
               default = "";
@@ -192,43 +207,41 @@
                 For more info see: https://codeigniter.com/user_guide/general/configuration.html...
               '';
             };
+            # adminAddr = mkOption {
+            #   type = types.str;
+            #   default = "admin@localhost";
+            #   description = "Email address of the httpd server administrator";
+            # };
           };
 
           config = mkIf cfg.enable {
             nixpkgs.overlays = [ self.overlay ];
             systemd =
-              let primary = "castopod-host";
-                  prep = "castopod-host-prep";
+              let prep = "castopod-host-prep";
                   periodic = "castopod-host-scheduled-activities";
               in {
                 services = {
                   ${prep} = {
                     description = "Castopod-host prep";
                     wantedBy = [ "multi-user.target" ];
-                    path = [ rsync ];
+                    requires = [ "mysql.service" ];
+                    after = [ "mysql.service" ];
+                    path = [ rsync php ];
                     serviceConfig = {
                       Type = "oneshot";
-                      ExecStart = writeShellScript "prep-castopod-host" ''
+                      User = cfg.user;
+                      PermissionsStartOnly = true;
+                      WorkingDirectory = package;
+                      ExecStartPre = writeShellScript "castopod-host-prep-statedir" ''
                         rsync -ru ${package}/writable/ ${cfg.stateDir}/
                         rsync -ru ${package}/public/~media/ ${cfg.stateDir}/media/
-                        chown -R ${cfg.user} ${cfg.stateDir}
-                        chmod -R 700 ${cfg.stateDir}
+                        chgrp -R ${cfg.user} ${cfg.stateDir}
+                        chmod -R 770 ${cfg.stateDir}
                       '';
-                    };
-                  };
-                  ${primary} = {
-                    description = "Castopod-host server";
-                    wantedBy = [ "multi-user.target" ];
-                    requires = [ "${prep}.service" "mysql.service" ];
-                    after = [ "${prep}.service" "mysql.service" ];
-                    serviceConfig = {
-                      User = cfg.user;
-                      WorkingDirectory = package;
-                      ExecStartPre = writeShellScript "castopod-host-init-db" ''
-                        ${php}/bin/php spark migrate -all
-                        ${php}/bin/php spark db:seed AppSeeder
+                      ExecStart = writeShellScript "castopod-host-init-db" ''
+                        php spark migrate -all
+                        php spark db:seed AppSeeder
                       '';
-                      ExecStart = "${php}/bin/php spark serve --host 0.0.0.0";
                     };
                   };
                   ${periodic} = {
@@ -244,8 +257,8 @@
                 timers.${periodic} = {
                   description = "Timer for Castopod-host scheduled activities";
                   wantedBy = [ "timers.target" ];
-                  requires = [ "${primary}.service" ];
-                  after = [ "${primary}.service" ];
+                  requires = [ "${prep}.service" ];
+                  after = [ "${prep}.service" ];
                   timerConfig = {
                     OnActiveSec = "0";
                     OnUnitActiveSec = "60";
@@ -253,10 +266,12 @@
                   };
                 };
               };
-            users.users.${cfg.user} = {
-              group = cfg.user;
-              isSystemUser = true;
-              createHome = false;
+            users = {
+              users.${cfg.user} = {
+                isSystemUser = true;
+                createHome = false;
+              };
+              groups.${cfg.user}.members = [ cfg.user config.services.httpd.user ];
             };
             services.mysql = { # mkIf cfg.database.createLocally {
               enable = true;
@@ -267,13 +282,24 @@
                 ensurePermissions = { "${cfg.database}.*" = "ALL PRIVILEGES"; };
               }];
             };
-
-
-            # services.httpd = {
+            services.httpd = {
+              enable = true;
+              adminAddr = "admin@localhost";
+              enablePHP = true;
+              extraModules = [ "rewrite" ];
+              virtualHosts.castopod = {
+                documentRoot = "${castopod-host}/public";
+              };
+            };
+            # services.nginx = {
             #   enable = true;
-            #   adminAddr = "admin@localhost";
-            #   enablePHP = true;
-            #   virtualHosts.localhost.documentRoot = "${castopod-host}/public";
+            #   virtualHosts.localhost = {
+            #     root = "${castopod-host}/public";
+            #     extraConfig = ''
+            #       try_files $uri $uri/ /index.php?$args;
+            #       index index.php index.html;
+            #     '';
+            #   };
             # };
           };
         };
@@ -292,11 +318,13 @@
 
             # Network configuration.
             networking.useDHCP = false;
-            networking.firewall.allowedTCPPorts = [ 8080 ];
+            networking.firewall.allowedTCPPorts = [ 80 443 ];
 
             # Enable the castopod service
             services.castopod-host = {
               enable = true;
+              development = true;
+              # adminAddr = "admin@localhost";
             };
           })
         ];
