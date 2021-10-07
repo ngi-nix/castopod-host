@@ -30,24 +30,22 @@
       });
 
       defaultEnvFile = ''
-        CI_ENVIRONMENT="development"
+        CI_ENVIRONMENT = "development"
 
-        app.forceGlobalSecureRequests=false
+        app.forceGlobalSecureRequests = false
 
-        app.baseURL="http://localhost:8080/"
-        app.mediaBaseURL="http://localhost:8080/"
+        app.baseURL = "http://localhost:8080/"
+        app.mediaBaseURL = "http://localhost:8080/"
 
-        app.adminGateway="cp-admin"
-        app.authGateway="cp-auth"
+        app.adminGateway = "cp-admin"
+        app.authGateway = "cp-auth"
 
-        database.default.hostname="localhost"
-        database.default.database="castopod"
-        database.default.username="podlibre"
-        # database.default.password="castopod"
+        database.default.hostname = "localhost"
+        database.default.database = "castopod"
+        database.default.username = "podlibre"
+        # database.default.password = "castopod"
 
-        # cache.handler="redis"
-        # cache.redis.host = "redis"
-        cache.handler="file"
+        cache.handler = "file"
       '';
 
       package =
@@ -58,18 +56,15 @@
         }:
         let
           inherit (pkgs) callPackage substituteAll applyPatches writeText lib
-                         fetchFromGitHub fetchurl buildGoModule git nodePackages;
-          inherit (builtins) partition head;
-          cleanSrc = nix-filter.lib {
-            root = ./.;
-            exclude = [".git" "result" "flake.nix" "flake.lock" "nix"];
-          };
+                         fetchFromGitHub buildGoModule git nodePackages stdenv;
+          inherit (builtins) toPath;
           patchedCleanSrc = applyPatches {
-            name = "source";
-            src = cleanSrc;
-            patches = [
-              (substituteAll { src = ./nix/stateDir.patch; inherit stateDir; })
-            ];
+            name = "castopod-source";
+            src = nix-filter.lib {
+              root = ./.;
+              exclude = [".git" ".env" "result" "flake.nix" "flake.lock" "nix"];
+            };
+            patches = [(substituteAll { src = ./nix/stateDir.patch; inherit stateDir; })];
           };
           nodeComp = import ./nix/node-composition.nix { inherit pkgs; };
           esbuild = buildGoModule rec {
@@ -137,28 +132,31 @@
       # A NixOS module
       nixosModules.castopod-host = { config, pkgs, lib, ... }:
         let
-          inherit (lib) mkOption mkEnableOption mkIf mkDefault types optionalString;
-          inherit (pkgs) castopod-host writeShellScript php rsync mariadb;
+          inherit (lib) mkOption mkEnableOption mkIf mkDefault types;
+          inherit (pkgs) writeShellScript rsync mariadb;
           cfg = config.services.castopod-host;
-          mediaBaseUrl = cfg.mediaBaseUrl or cfg.baseUrl;
-          package = castopod-host.override {
+          fpm = config.services.phpfpm.pools.castopod-host;
+          package = pkgs.castopod-host.override {
             stateDir = cfg.stateDir;
             envFile = ''
-              database.default.hostname="localhost"
-              database.default.database="${cfg.database}"
-              database.default.username="${cfg.user}"
+              database.default.hostname = 'localhost'
+              database.default.database = '${cfg.database}'
+              database.default.username = '${cfg.user}'
 
-              ${optionalString cfg.development "CI_ENVIRONMENT=\"development\""}
-              app.forceGlobalSecureRequests=${if cfg.forceHttps then "true" else "false"}
+              CI_ENVIRONMENT = ${if cfg.development then "development" else "production"}
+              app.forceGlobalSecureRequests = ${if cfg.forceHttps then "true" else "false"}
 
-              app.baseURL="${cfg.baseUrl}"
-              app.mediaBaseURL="${mediaBaseUrl}"
+              app.baseURL = '${cfg.baseUrl}'
+              app.mediaBaseURL = '${cfg.baseUrl}'
 
-              cache.handler="file" # TODO permit redis
+              cache.handler = "file"
 
               ${cfg.extraConfig}
             '';
           };
+          php = pkgs.php.withExtensions ({ enabled, all }:
+            with all; enabled ++ [ intl curl mbstring gd mysqlnd ]
+          );
         in
         {
           options.services.castopod-host = {
@@ -195,10 +193,20 @@
               default = "http://localhost/";
               description = "Base URL";
             };
-            mediaBaseUrl = mkOption {
-              type = types.str;
-              default = config.services.castopod-host.baseUrl;
-              description = "Media base URL. If not provided, baseUrl is used.";
+            poolConfig = mkOption {
+              type = with types; attrsOf (oneOf [ str int bool ]);
+              default = {
+                "pm" = "dynamic";
+                "pm.max_children" = 32;
+                "pm.start_servers" = 2;
+                "pm.min_spare_servers" = 2;
+                "pm.max_spare_servers" = 4;
+                "pm.max_requests" = 500;
+              };
+              description = ''
+                Options for the PHP pool. See the documentation on <literal>php-fpm.conf</literal>
+                for details on configuration directives.
+              '';
             };
             extraConfig = mkOption {
               type = types.lines;
@@ -208,15 +216,63 @@
                 For more info see: https://codeigniter.com/user_guide/general/configuration.html...
               '';
             };
-            # adminAddr = mkOption {
-            #   type = types.str;
-            #   default = "admin@localhost";
-            #   description = "Email address of the httpd server administrator";
-            # };
+            adminAddr = mkOption {
+              type = types.str;
+              default = "admin@localhost";
+              description = "Email address of the httpd server administrator";
+            };
           };
 
           config = mkIf cfg.enable {
             nixpkgs.overlays = [ self.overlay ];
+            users = {
+              users.${cfg.user} = {
+                group = cfg.user;
+                isSystemUser = true;
+                createHome = false;
+              };
+              groups.${cfg.user} = {};
+            };
+            services.phpfpm = {
+              phpPackage = php;
+              pools.castopod-host = {
+                inherit (cfg) user;
+                settings = {
+                  "listen.owner" = config.services.httpd.user;
+                } // cfg.poolConfig;
+              };
+            };
+            services.httpd = {
+              enable = true;
+              user = cfg.user; # TODO is this a bad idea?
+              extraModules = [ "rewrite" "proxy_fcgi" ];
+              virtualHosts.castopod = {
+                documentRoot = "${package}/public";
+                extraConfig = ''
+                  <Directory "${package}/public">
+                    <FilesMatch "\.php$">
+                      <If "-f %{REQUEST_FILENAME}">
+                        SetHandler "proxy:unix:${fpm.socket}|fcgi://localhost/"
+                      </If>
+                    </FilesMatch>
+                    Options Indexes FollowSymLinks
+                    AllowOverride All
+                    DirectoryIndex index.php
+                    Require all granted
+                  </Directory>
+                '';
+                adminAddr = cfg.adminAddr;
+              };
+            };
+            services.mysql = {
+              enable = true;
+              package = mkDefault mariadb;
+              ensureDatabases = [ cfg.database ];
+              ensureUsers = [{
+                name = cfg.user;
+                ensurePermissions = { "${cfg.database}.*" = "ALL PRIVILEGES"; };
+              }];
+            };
             systemd =
               let prep = "castopod-host-prep";
                   periodic = "castopod-host-scheduled-activities";
@@ -267,40 +323,6 @@
                   };
                 };
               };
-            users.users.${cfg.user} = {
-              group = cfg.user;
-              isSystemUser = true;
-              createHome = false;
-            };
-            services.mysql = { # mkIf cfg.database.createLocally {
-              enable = true;
-              package = mkDefault mariadb;
-              ensureDatabases = [ cfg.database ];
-              ensureUsers = [{
-                name = cfg.user;
-                ensurePermissions = { "${cfg.database}.*" = "ALL PRIVILEGES"; };
-              }];
-            };
-            services.httpd = {
-              enable = true;
-              user = cfg.user; # TODO is this a bad idea?
-              adminAddr = "admin@localhost";
-              enablePHP = true;
-              extraModules = [ "rewrite" ];
-              virtualHosts.castopod = {
-                documentRoot = "${castopod-host}/public";
-              };
-            };
-            # services.nginx = {
-            #   enable = true;
-            #   virtualHosts.localhost = {
-            #     root = "${castopod-host}/public";
-            #     extraConfig = ''
-            #       try_files $uri $uri/ /index.php?$args;
-            #       index index.php index.html;
-            #     '';
-            #   };
-            # };
           };
         };
 
@@ -323,7 +345,7 @@
             # Enable the castopod service
             services.castopod-host = {
               enable = true;
-              development = true;
+              development = false;
               baseUrl = "http://castopod/";
               # adminAddr = "admin@localhost";
             };
