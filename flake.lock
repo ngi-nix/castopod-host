@@ -23,11 +23,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1633673899,
-        "narHash": "sha256-ffFTlZgLv2q0gdGWUI6vqirT3x0+zCyYzUt4N96EjJc=",
+        "lastModified": 1633706590,
+        "narHash": "sha256-1HnVRHS0r6ttZdiTfEU3bdB2Wj5GKUaiEh5S0IFDND8=",
         "owner": "charlieshanley",
         "repo": "composer2nix",
-        "rev": "70f4ae26b22340251a2d117cf26e204b69c697ac",
+        "rev": "4133a29761446f724e1b5a53a732afc70fdd4099",
         "type": "github"
       },
       "original": {
