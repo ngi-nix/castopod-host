@@ -56,7 +56,8 @@
         }:
         let
           inherit (pkgs) callPackage substituteAll applyPatches writeText lib
-                         fetchFromGitHub buildGoModule git nodePackages stdenv;
+                         fetchFromGitHub buildGoModule git nodePackages stdenv
+                         imagemagick msmtp;
           inherit (builtins) toPath;
           patchedCleanSrc = applyPatches {
             name = "castopod-source";
@@ -97,9 +98,11 @@
               })];
             };
           };
-          envFile' = if lib.isString envFile then writeText ".env" envFile
-            else if lib.isStorePath envFile then envFile
-            else throw "arg `envFile` must be a string or store path";
+          envFile' = writeText ".env" ''
+            images.libraryPath = "${imagemagick}/bin/convert"
+            email.mailPath = "${msmtp}/bin/sendmail"
+            ${envFile}
+          '';
         in
           phpPackage.overrideAttrs (initial: rec {
             name = "castopod-host-${version}";
@@ -133,7 +136,7 @@
       nixosModules.castopod-host = { config, pkgs, lib, ... }:
         let
           inherit (lib) mkOption mkEnableOption mkIf mkDefault types;
-          inherit (pkgs) writeShellScript rsync mariadb;
+          inherit (pkgs) writeShellScript writeText rsync mariadb;
           cfg = config.services.castopod-host;
           fpm = config.services.phpfpm.pools.castopod-host;
           package = pkgs.castopod-host.override {
@@ -147,7 +150,7 @@
               app.forceGlobalSecureRequests = ${if cfg.forceHttps then "true" else "false"}
 
               app.baseURL = '${cfg.baseUrl}'
-              app.mediaBaseURL = '${cfg.baseUrl}'
+              app.mediaBaseURL = '${cfg.mediaBaseUrl}'
 
               cache.handler = "file"
 
@@ -193,6 +196,14 @@
               default = "http://localhost/";
               description = "Base URL";
             };
+            mediaBaseUrl = mkOption {
+              type = types.str;
+              default = config.services.castopod-host.baseUrl;
+              description = ''
+                Media base URL. If not provided, baseUrl is used. If you had a
+                CDN for audio files, you would put that URL here.
+              '';
+            };
             poolConfig = mkOption {
               type = with types; attrsOf (oneOf [ str int bool ]);
               default = {
@@ -208,12 +219,17 @@
                 for details on configuration directives.
               '';
             };
+            phpOptions = mkOption {
+              type = types.lines;
+              default = "";
+              description = "Lines to be added to php.ini for the pool serving the app";
+            };
             extraConfig = mkOption {
               type = types.lines;
               default = "";
               description = ''
                 Lines to add to the .env file.
-                For more info see: https://codeigniter.com/user_guide/general/configuration.html...
+                For more info see: https://codeigniter.com/user_guide/general/configuration.html
               '';
             };
             adminAddr = mkOption {
@@ -236,7 +252,7 @@
             services.phpfpm = {
               phpPackage = php;
               pools.castopod-host = {
-                inherit (cfg) user;
+                inherit (cfg) user phpOptions;
                 settings = {
                   "listen.owner" = config.services.httpd.user;
                 } // cfg.poolConfig;
@@ -272,6 +288,9 @@
                 name = cfg.user;
                 ensurePermissions = { "${cfg.database}.*" = "ALL PRIVILEGES"; };
               }];
+              initialScript = writeText "castopod-db-init" ''
+                # init superadmin if necessary
+              '';
             };
             systemd =
               let prep = "castopod-host-prep";
@@ -347,8 +366,15 @@
               enable = true;
               development = false;
               baseUrl = "http://castopod/";
-              # adminAddr = "admin@localhost";
+              phpOptions = ''
+                post_max_size = 50M
+                upload_max_filesize = 40M
+              '';
             };
+
+            environment.systemPackages = with pkgs; [
+              tmux vim htop tree php80
+            ];
           })
         ];
       };
