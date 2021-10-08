@@ -1,9 +1,0 @@
-@layer components {
-  .radio-toggler-element {
-    @apply hidden;
-  }
-
-  .radio-toggler > input:checked ~ .radio-toggler-element {
-    @apply block;
-  }
-}

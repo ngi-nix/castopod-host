@@ -1,5 +1,56 @@
 {
   "nodes": {
+    "castopod-host-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1633445093,
+        "narHash": "sha256-0neBFdJNXdIHrpQ6+pKD+6MPviX/sFpNNXnAiZmzZ0M=",
+        "ref": "alpha",
+        "rev": "84a0029c56ca24d47f4ba8649f6f448d890a29fa",
+        "revCount": 319,
+        "type": "git",
+        "url": "https://code.podlibre.org/podlibre/castopod-host"
+      },
+      "original": {
+        "ref": "alpha",
+        "type": "git",
+        "url": "https://code.podlibre.org/podlibre/castopod-host"
+      }
+    },
+    "composer2nix": {
+      "inputs": {
+        "flake-utils": "flake-utils",
+        "nixpkgs": "nixpkgs"
+      },
+      "locked": {
+        "lastModified": 1633673899,
+        "narHash": "sha256-ffFTlZgLv2q0gdGWUI6vqirT3x0+zCyYzUt4N96EjJc=",
+        "owner": "charlieshanley",
+        "repo": "composer2nix",
+        "rev": "70f4ae26b22340251a2d117cf26e204b69c697ac",
+        "type": "github"
+      },
+      "original": {
+        "owner": "charlieshanley",
+        "repo": "composer2nix",
+        "type": "github"
+      }
+    },
+    "flake-utils": {
+      "locked": {
+        "lastModified": 1614513358,
+        "narHash": "sha256-LakhOx3S1dRjnh0b5Dg3mbZyH0ToC9I8Y2wKSkBaTzU=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "5466c5bbece17adaab2d82fae80b46e807611bf3",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
     "ipcat": {
       "flake": false,
       "locked": {
@@ -33,11 +84,27 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1632660378,
-        "narHash": "sha256-sjA8eQlnyDjDLyAyq3XlJmN0nqW0ftl/pb7VnMg86L0=",
+        "lastModified": 1616305499,
+        "narHash": "sha256-WArUDrAuqq9jNLNJI0hBClleALaCysA40WBbQHQlqLg=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "31ffc50c571e6683e9ecc9dbcbd4a8e9914b4497",
+        "rev": "9b8530e3721fc008bacac61b6c50a29712ee2f2f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-20.09",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_2": {
+      "locked": {
+        "lastModified": 1633528625,
+        "narHash": "sha256-AGj5q58eHACAe0RQGxObrGwMUsjMozTsiznhsLCYisQ=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "5e2018f7b383aeca6824a30c0cd1978c9532a46a",
         "type": "github"
       },
       "original": {
@@ -48,9 +115,11 @@
     },
     "root": {
       "inputs": {
+        "castopod-host-src": "castopod-host-src",
+        "composer2nix": "composer2nix",
         "ipcat": "ipcat",
         "nix-filter": "nix-filter",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs_2"
       }
     }
   },
