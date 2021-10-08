@@ -98,7 +98,7 @@
           patchedSrc = applyPatches {
             name = "castopod-host-src";
             src = castopod-host-src;
-            patches = [(substituteAll { src = ./stateDir.patch; inherit stateDir; })];
+            patches = [(substituteAll { src = ./patches/stateDir.patch; inherit stateDir; })];
           };
           nodeComp = import ./deps/node-composition.nix { inherit pkgs; };
           esbuild = buildGoModule rec {
@@ -126,7 +126,7 @@
             packageOverrides."podlibre/ipcat" = oldPkg: applyPatches {
               src = oldPkg;
               patches = [(substituteAll {
-                src = ./datacenters.patch;
+                src = ./patches/datacenters.patch;
                 datacenters = "${ipcat}/datacenters.csv";
               })];
             };
