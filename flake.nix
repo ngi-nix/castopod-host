@@ -93,14 +93,16 @@
         let
           inherit (pkgs) callPackage substituteAll applyPatches writeText lib
                          fetchFromGitHub buildGoModule git nodePackages stdenv
-                         imagemagick msmtp;
+                         imagemagick msmtp rsync runCommand;
           inherit (builtins) toPath;
+          # This is a separate step because of idiosyncrasies in the *2nix builds
           patchedSrc = applyPatches {
             name = "castopod-host-src";
             src = castopod-host-src;
-            patches = [(substituteAll { src = ./patches/stateDir.patch; inherit stateDir; })];
+            patches = [
+              (substituteAll { src = ./patches/stateDir.patch; inherit stateDir; })
+            ];
           };
-          nodeComp = import ./deps/node-composition.nix { inherit pkgs; };
           esbuild = buildGoModule rec {
             pname = "esbuild";
             version = "0.12.12";
@@ -112,7 +114,7 @@
             };
             vendorSha256 = "sha256-2ABWPqhK2Cf4ipQH7XvRrd+ZscJhYPc3SV2cGT0apdg=";
           };
-          npmPackage = nodeComp.package.override {
+          npmPackage = (callPackage ./deps/node-composition.nix {}).package.override {
             src = patchedSrc;
             npmFlags = "--ignore-scripts";
             ESBUILD_BINARY_PATH = "${esbuild}/bin/esbuild";
@@ -121,7 +123,12 @@
               npm run build:static
             '';
           };
-          phpPackage = callPackage ./deps/php-composition.nix {
+          envFile' = writeText ".env" ''
+            images.libraryPath = "${imagemagick}/bin/convert"
+            email.mailPath = "${msmtp}/bin/sendmail"
+            ${envFile}
+          '';
+          phpPackage = (callPackage ./deps/php-composition.nix {
             noDev = true;
             packageOverrides."podlibre/ipcat" = oldPkg: applyPatches {
               src = oldPkg;
@@ -130,23 +137,21 @@
                 datacenters = "${ipcat}/datacenters.csv";
               })];
             };
-          };
-          envFile' = writeText ".env" ''
-            images.libraryPath = "${imagemagick}/bin/convert"
-            email.mailPath = "${msmtp}/bin/sendmail"
-            ${envFile}
-          '';
-        in
-          phpPackage.overrideAttrs (initial: rec {
-            name = "castopod-host-${version}";
-            src = "${npmPackage}/lib/node_modules/castopod-host";
+          }).overrideAttrs (initial: {
+            src = patchedSrc;
             nativeBuildInputs = initial.nativeBuildInputs or [] ++ [ git ];
-            postInstall = ''
-              ln -s ${envFile'} $out/.env
-              mv $out/public/media $out/public/~media
-              ln -s ${stateDir}/media $out/public/media
-            '';
           });
+        in
+          # Compose the npm and php packages together
+          runCommand "castopod-host-${version}" {} ''
+            mkdir $out
+            ${rsync}/bin/rsync -a ${npmPackage}/lib/node_modules/castopod-host/ ${phpPackage}/ $out
+            chmod -R +w $out
+
+            ln -s ${envFile'} $out/.env
+            mv $out/public/media $out/public/~media
+            ln -s ${stateDir}/media $out/public/media
+          '';
 
       forAttrs = attrs: f: nixpkgs.lib.mapAttrs f attrs;
 
