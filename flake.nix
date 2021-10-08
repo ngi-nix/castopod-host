@@ -11,11 +11,10 @@
       url = "github:client9/ipcat";
       flake = false;
     };
-    nix-filter.url = "github:numtide/nix-filter";
     composer2nix.url = "github:charlieshanley/composer2nix";
   };
 
-  outputs = { self, nixpkgs, castopod-host-src, ipcat, nix-filter, composer2nix }:
+  outputs = { self, nixpkgs, castopod-host-src, ipcat, composer2nix }:
     let
 
       # Generate a user-friendly version numer
