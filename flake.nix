@@ -225,6 +225,32 @@
               default = "podlibre";
               description = "Unix user corresponding to database user";
             };
+            superadmin = {
+              username = mkOption {
+                type = types.str;
+                description = ''
+                  Username of the initial superadmin that will be created in the
+                  database if no users exist yet.
+                '';
+              };
+              email = mkOption {
+                type = types.str;
+                description = ''
+                  Email address of the initial superadmin that will be created in the
+                  database if no users exist yet.
+                '';
+              };
+              initialPassword = mkOption {
+                type = types.str;
+                default = "password";
+                description = ''
+                  Initial password for the superadmin that is created in the
+                  database if no prior users exist.
+                  This password is not secure and should be changed immediately
+                  on first use.
+                '';
+              };
+            };
             development = mkOption {
               type = types.bool;
               default = false;
@@ -332,9 +358,6 @@
                 name = cfg.user;
                 ensurePermissions = { "${cfg.database}.*" = "ALL PRIVILEGES"; };
               }];
-              initialScript = writeText "castopod-db-init" ''
-                # init superadmin if necessary
-              '';
             };
             systemd =
               let prep = "castopod-host-prep";
@@ -346,7 +369,7 @@
                     wantedBy = [ "multi-user.target" ];
                     requires = [ "mysql.service" ];
                     after = [ "mysql.service" ];
-                    path = [ rsync php ];
+                    path = [ rsync php mariadb ];
                     serviceConfig = {
                       Type = "oneshot";
                       User = cfg.user;
@@ -361,6 +384,20 @@
                       ExecStart = writeShellScript "castopod-host-init-db" ''
                         php spark migrate -all
                         php spark db:seed AppSeeder
+
+                        export nUsers=$(mariadb -Bse "select count(*) from cp_users;" ${cfg.database})
+                        if [[ $nUsers -lt 1 ]]
+                          then
+                            php spark auth:create_user ${cfg.superadmin.username} ${cfg.superadmin.email}
+                            php spark auth:set_password ${cfg.superadmin.username} ${cfg.superadmin.initialPassword}
+                            mariadb castopod < ${writeText "make-superadmin" ''
+                              insert into cp_auth_groups_users (group_id, user_id)
+                              select cp_auth_groups.id, cp_users.id
+                              from cp_auth_groups, cp_users
+                              where cp_auth_groups.name = "superadmin";
+                              and cp_users.username = "${cfg.superadmin.username}"
+                            ''}
+                        fi
                       '';
                     };
                   };
@@ -414,6 +451,10 @@
                 post_max_size = 50M
                 upload_max_filesize = 40M
               '';
+              superadmin = {
+                username = "superadmin";
+                email = "superadmin@example.com";
+              };
             };
 
             environment.systemPackages = with pkgs; [
