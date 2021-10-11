@@ -98,12 +98,30 @@
         "type": "indirect"
       }
     },
+    "podcastNamespace": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1633486287,
+        "narHash": "sha256-PKIYo8sTfwZHau35kBJNLWRjLglpz7anf4oGl3GobIc=",
+        "owner": "Podcastindex-org",
+        "repo": "podcast-namespace",
+        "rev": "24e447a16acfe9c73cf4040adb443f64dbeb493d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Podcastindex-org",
+        "ref": "main",
+        "repo": "podcast-namespace",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "castopod-host-src": "castopod-host-src",
         "composer2nix": "composer2nix",
         "ipcat": "ipcat",
-        "nixpkgs": "nixpkgs_2"
+        "nixpkgs": "nixpkgs_2",
+        "podcastNamespace": "podcastNamespace"
       }
     }
   },

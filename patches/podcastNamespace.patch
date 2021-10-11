@@ -1,0 +1,29 @@
+diff --git a/composer.json b/composer.json
+index 803b5d4..9adb76b 100644
+--- a/composer.json
++++ b/composer.json
+@@ -59,18 +59,18 @@
+       "@php vendor/opawg/user-agents-php/src/UserAgentsGenerate.php >  vendor/opawg/user-agents-php/src/UserAgents.php",
+       "@php vendor/opawg/user-agents-php/src/UserAgentsRSSGenerate.php >  vendor/opawg/user-agents-php/src/UserAgentsRSS.php",
+       "@php vendor/podlibre/ipcat/IpDbGenerate.php >  vendor/podlibre/ipcat/IpDb.php",
+-      "@php vendor/podlibre/podcast-namespace/src/TaxonomyGenerate.php https://raw.githubusercontent.com/Podcastindex-org/podcast-namespace/main/taxonomy-en.json >  app/Language/en/PersonsTaxonomy.php",
+-      "@php vendor/podlibre/podcast-namespace/src/TaxonomyGenerate.php https://raw.githubusercontent.com/Podcastindex-org/podcast-namespace/main/taxonomy-fr.json >  app/Language/fr/PersonsTaxonomy.php",
+-      "@php vendor/podlibre/podcast-namespace/src/ReversedTaxonomyGenerate.php https://raw.githubusercontent.com/Podcastindex-org/podcast-namespace/main/taxonomy-en.json >  vendor/podlibre/podcast-namespace/src/ReversedTaxonomy.php"
++      "@php vendor/podlibre/podcast-namespace/src/TaxonomyGenerate.php @podcastNamespace@/taxonomy-en.json >  app/Language/en/PersonsTaxonomy.php",
++      "@php vendor/podlibre/podcast-namespace/src/TaxonomyGenerate.php @podcastNamespace@/taxonomy-fr.json >  app/Language/fr/PersonsTaxonomy.php",
++      "@php vendor/podlibre/podcast-namespace/src/ReversedTaxonomyGenerate.php @podcastNamespace@/taxonomy-en.json >  vendor/podlibre/podcast-namespace/src/ReversedTaxonomy.php"
+     ],
+     "post-update-cmd": [
+       "@composer dump-autoload",
+       "@php vendor/opawg/user-agents-php/src/UserAgentsGenerate.php >  vendor/opawg/user-agents-php/src/UserAgents.php",
+       "@php vendor/opawg/user-agents-php/src/UserAgentsRSSGenerate.php >  vendor/opawg/user-agents-php/src/UserAgentsRSS.php",
+       "@php vendor/podlibre/ipcat/IpDbGenerate.php >  vendor/podlibre/ipcat/IpDb.php",
+-      "@php vendor/podlibre/podcast-namespace/src/TaxonomyGenerate.php https://raw.githubusercontent.com/Podcastindex-org/podcast-namespace/main/taxonomy-en.json >  app/Language/en/PersonsTaxonomy.php",
+-      "@php vendor/podlibre/podcast-namespace/src/TaxonomyGenerate.php https://raw.githubusercontent.com/Podcastindex-org/podcast-namespace/main/taxonomy-fr.json >  app/Language/fr/PersonsTaxonomy.php",
+-      "@php vendor/podlibre/podcast-namespace/src/ReversedTaxonomyGenerate.php https://raw.githubusercontent.com/Podcastindex-org/podcast-namespace/main/taxonomy-en.json >  vendor/podlibre/podcast-namespace/src/ReversedTaxonomy.php"
++      "@php vendor/podlibre/podcast-namespace/src/TaxonomyGenerate.php @podcastNamespace@/taxonomy-en.json >  app/Language/en/PersonsTaxonomy.php",
++      "@php vendor/podlibre/podcast-namespace/src/TaxonomyGenerate.php @podcastNamespace@/taxonomy-fr.json >  app/Language/fr/PersonsTaxonomy.php",
++      "@php vendor/podlibre/podcast-namespace/src/ReversedTaxonomyGenerate.php @podcastNamespace@/taxonomy-en.json >  vendor/podlibre/podcast-namespace/src/ReversedTaxonomy.php"
+     ]
+   },
+   "support": {

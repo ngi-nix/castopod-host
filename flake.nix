@@ -7,14 +7,18 @@
       url = "git+https://code.podlibre.org/podlibre/castopod-host?ref=alpha";
       flake = false;
     };
+    composer2nix.url = "github:charlieshanley/composer2nix";
     ipcat = {
       url = "github:client9/ipcat";
       flake = false;
     };
-    composer2nix.url = "github:charlieshanley/composer2nix";
+    podcastNamespace = {
+      url = "github:Podcastindex-org/podcast-namespace/main";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, castopod-host-src, ipcat, composer2nix }:
+  outputs = { self, nixpkgs, castopod-host-src, ipcat, podcastNamespace, composer2nix }:
     let
 
       # Generate a user-friendly version numer
@@ -95,12 +99,13 @@
                          fetchFromGitHub buildGoModule git nodePackages stdenv
                          imagemagick msmtp rsync runCommand;
           inherit (builtins) toPath;
-          # This is a separate step because of idiosyncrasies in the *2nix builds
+          # This is a separate drv because of idiosyncrasies in the *2nix builds
           patchedSrc = applyPatches {
             name = "castopod-host-src";
             src = castopod-host-src;
             patches = [
               (substituteAll { src = ./patches/stateDir.patch; inherit stateDir; })
+              (substituteAll { src = ./patches/podcastNamespace.patch; inherit podcastNamespace; })
             ];
           };
           esbuild = buildGoModule rec {
