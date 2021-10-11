@@ -299,7 +299,16 @@
               default = "";
               description = ''
                 Lines to add to the .env file.
-                For more info see: https://codeigniter.com/user_guide/general/configuration.html
+                For more info see: https://codeigniter.com/user_guide/general/configuration.html,
+                and also see https://code.podlibre.org/podlibre/castopod-host/-/tree/alpha/app/Config
+                for app-specific configuration values that can be set.
+              '';
+              example = ''
+                email.fromEmail = admin@my-domain.com
+                email.fromName = Podcast Admin
+                email.SMTPHost = smtp.my-domain.com
+                email.SMTPUser = smtpusername
+                email.SMTPPass = smtppassword
               '';
             };
             adminAddr = mkOption {
