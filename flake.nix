@@ -403,8 +403,8 @@
                               insert into cp_auth_groups_users (group_id, user_id)
                               select cp_auth_groups.id, cp_users.id
                               from cp_auth_groups, cp_users
-                              where cp_auth_groups.name = "superadmin";
-                              and cp_users.username = "${cfg.superadmin.username}"
+                              where cp_auth_groups.name = "superadmin"
+                              and cp_users.username = "${cfg.superadmin.username}";
                             ''}
                         fi
                       '';
