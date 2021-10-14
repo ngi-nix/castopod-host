@@ -115,13 +115,47 @@
         "type": "github"
       }
     },
+    "podcastRssUserAgents": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1632906109,
+        "narHash": "sha256-d3LmxDhtXDjxwKcZ12Nw2L4u/R83Yah0vdaLU2Brf+A=",
+        "owner": "opawg",
+        "repo": "podcast-rss-useragents",
+        "rev": "34f49b17083371aad95a4ff8fe994b87461d99da",
+        "type": "github"
+      },
+      "original": {
+        "owner": "opawg",
+        "repo": "podcast-rss-useragents",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "castopod-host-src": "castopod-host-src",
         "composer2nix": "composer2nix",
         "ipcat": "ipcat",
         "nixpkgs": "nixpkgs_2",
-        "podcastNamespace": "podcastNamespace"
+        "podcastNamespace": "podcastNamespace",
+        "podcastRssUserAgents": "podcastRssUserAgents",
+        "userAgents": "userAgents"
+      }
+    },
+    "userAgents": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1632130221,
+        "narHash": "sha256-XKJAKlYQ0r6gUj/9gqimj8SSoqNvuUbDp4u/bJOvtX4=",
+        "owner": "opawg",
+        "repo": "user-agents",
+        "rev": "220a8d281685c3a5ea6f5cbe36f1064c811d7025",
+        "type": "github"
+      },
+      "original": {
+        "owner": "opawg",
+        "repo": "user-agents",
+        "type": "github"
       }
     }
   },

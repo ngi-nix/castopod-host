@@ -1,0 +1,26 @@
+diff --git a/src/UserAgentsGenerate.php b/src/UserAgentsGenerate.php
+index c2cbb96..924cf1b 100644
+--- a/src/UserAgentsGenerate.php
++++ b/src/UserAgentsGenerate.php
+@@ -6,7 +6,7 @@
+ $rowstr = var_export(
+     json_decode(
+         file_get_contents(
+-            'https://raw.githubusercontent.com/opawg/user-agents/master/src/user-agents.json'
++            '@userAgents@/src/user-agents.json'
+         ),
+         true
+     ),
+diff --git a/src/UserAgentsRSSGenerate.php b/src/UserAgentsRSSGenerate.php
+index 02d30c8..d5a23b3 100644
+--- a/src/UserAgentsRSSGenerate.php
++++ b/src/UserAgentsRSSGenerate.php
+@@ -6,7 +6,7 @@
+ $rowstr = var_export(
+     json_decode(
+         file_get_contents(
+-            'https://raw.githubusercontent.com/opawg/podcast-rss-useragents/master/src/rss-ua.json'
++            '@podcastRssUserAgents@/src/rss-ua.json'
+         ),
+         true
+     ),
