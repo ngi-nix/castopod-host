@@ -40,7 +40,6 @@
 
       # Generate a user-friendly version numer
       version = "${builtins.substring 0 8 self.lastModifiedDate}-${self.shortRev or "dirty"}";
-      # version = "v1.0.0-alpha.70"; # TODO automate grabbing of this version
 
       # System types to support
       supportedSystems = [ "x86_64-linux" ];
@@ -363,7 +362,7 @@
             };
             services.httpd = {
               enable = true;
-              user = cfg.user; # TODO is this a bad idea?
+              user = cfg.user;
               extraModules = [ "rewrite" "proxy_fcgi" ];
               virtualHosts.castopod = {
                 documentRoot = "${package}/public";
@@ -498,6 +497,6 @@
       };
 
 
-      # TODO Tests run by 'nix flake check' and by Hydra
+      # TODO Tests run by 'nix flake check'
     };
 }
