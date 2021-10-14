@@ -16,9 +16,26 @@
       url = "github:Podcastindex-org/podcast-namespace/main";
       flake = false;
     };
+    userAgents = {
+      url = "github:opawg/user-agents";
+      flake = false;
+    };
+    podcastRssUserAgents = {
+      url = "github:opawg/podcast-rss-useragents";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, castopod-host-src, ipcat, podcastNamespace, composer2nix }:
+  outputs =
+    { self
+    , nixpkgs
+    , castopod-host-src
+    , composer2nix
+    , ipcat
+    , podcastNamespace
+    , userAgents
+    , podcastRssUserAgents
+    }:
     let
 
       # Generate a user-friendly version numer
@@ -98,7 +115,7 @@
           inherit (pkgs) callPackage substituteAll applyPatches writeText lib
                          fetchFromGitHub buildGoModule git nodePackages stdenv
                          imagemagick msmtp rsync runCommand;
-          inherit (builtins) toPath;
+          inherit (builtins) toPath map removeAttrs;
           # This is a separate drv because of idiosyncrasies in the *2nix builds
           patchedSrc = applyPatches {
             name = "castopod-host-src";
@@ -133,14 +150,21 @@
             email.mailPath = "${msmtp}/bin/sendmail"
             ${envFile}
           '';
+          patchFun = { patches, ... }@args:
+            let extraArgs = removeAttrs args [ "patches" ];
+                subbedPatches = map (p: substituteAll ({ src = p; } // extraArgs)) patches;
+            in x: applyPatches { src = x; patches = subbedPatches; };
           phpPackage = (callPackage ./deps/php-composition.nix {
             noDev = true;
-            packageOverrides."podlibre/ipcat" = oldPkg: applyPatches {
-              src = oldPkg;
-              patches = [(substituteAll {
-                src = ./patches/datacenters.patch;
-                datacenters = "${ipcat}/datacenters.csv";
-              })];
+            packageOverrides = {
+              "podlibre/ipcat" = patchFun {
+                patches = [ ./patches/ipcat.patch ];
+                inherit ipcat;
+              };
+              "opawg/user-agents-php" = patchFun {
+                patches = [ ./patches/userAgents.patch ];
+                inherit userAgents podcastRssUserAgents;
+              };
             };
           }).overrideAttrs (initial: {
             src = patchedSrc;

@@ -1,0 +1,53 @@
+commit a955d73df664b035cf9f8f7175134af4b4f4b421
+Author: Charlie Hanley <charles.scott.hanley+git@gmail.com>
+Date:   Thu Oct 14 11:18:01 2021 -0400
+
+    try to get debugging stuff in prod
+
+diff --git a/app/Config/Boot/production.php b/app/Config/Boot/production.php
+index 4cf210d..185128f 100644
+--- a/app/Config/Boot/production.php
++++ b/app/Config/Boot/production.php
+@@ -2,22 +2,35 @@
+ 
+ declare(strict_types=1);
+ 
++/* Temporarily applying the dev stuff to prod for debugging */
++
+ /**
+  * --------------------------------------------------------------------------
+  * ERROR DISPLAY
+  * --------------------------------------------------------------------------
+- * Don't show ANY in production environments. Instead, let the system catch
+- * it and display a generic error message.
++ * In development, we want to show as many errors as possible to help
++ * make sure they don't make it to production. And save us hours of
++ * painful debugging.
++ */
++error_reporting(-1);
++ini_set('display_errors', '1');
++
++/**
++ * --------------------------------------------------------------------------
++ * DEBUG BACKTRACES
++ * --------------------------------------------------------------------------
++ * If true, this constant will tell the error screens to display debug
++ * backtraces along with the other error information. If you would
++ * prefer to not see this, set this value to false.
+  */
+-ini_set('display_errors', '0');
+-error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED & ~E_STRICT & ~E_USER_NOTICE & ~E_USER_DEPRECATED);
++defined('SHOW_DEBUG_BACKTRACE') || define('SHOW_DEBUG_BACKTRACE', true);
+ 
+ /**
+  * --------------------------------------------------------------------------
+  * DEBUG MODE
+  * --------------------------------------------------------------------------
+  * Debug mode is an experimental flag that can allow changes throughout
+- * the system. It's not widely used currently, and may not survive
+- * release of the framework.
++ * the system. This will control whether Kint is loaded, and a few other
++ * items. It can always be used within your own application too.
+  */
+-defined('CI_DEBUG') || define('CI_DEBUG', false);
++defined('CI_DEBUG') || define('CI_DEBUG', true);
