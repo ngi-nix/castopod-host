@@ -123,6 +123,7 @@
             patches = [
               (substituteAll { src = ./patches/stateDir.patch; inherit stateDir; })
               (substituteAll { src = ./patches/podcastNamespace.patch; inherit podcastNamespace; })
+              ./patches/debug-in-prod.patch # TODO REMOVE ME
             ];
           };
           esbuild = buildGoModule rec {
