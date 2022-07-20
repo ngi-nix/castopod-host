@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-unstable";
     castopod-host-src = {
-      url = "git+https://code.podlibre.org/podlibre/castopod-host?ref=alpha";
+      url = "git+https://code.castopod.org/adaures/castopod?ref=alpha";
       flake = false;
     };
     composer2nix.url = "github:charlieshanley/composer2nix";

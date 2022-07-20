@@ -95,10 +95,10 @@ let
     "james-heinrich/getid3" = {
       targetDir = "";
       src = composerEnv.buildZipPackage {
-        name = "james-heinrich-getid3-5515a2d24667c3c0ff49fdcbdadc405c0880c7a2";
+        name = "james-heinrich-getid3-ee238d552571c6029898b087d5fc95df826418d6";
         src = fetchurl {
-          url = "https://api.github.com/repos/JamesHeinrich/getID3/zipball/5515a2d24667c3c0ff49fdcbdadc405c0880c7a2";
-          sha256 = "1lm6nhl1f66ydjijj90a43rkcgfi8pyhfvk3q0akr2akk8q81mks";
+          url = "https://api.github.com/repos/JamesHeinrich/getID3/zipball/ee238d552571c6029898b087d5fc95df826418d6";
+          sha256 = "1yq26vhgk4j4vn2j4idz0477lkd766963m9vvkk1g1cckxhf1flv";
         };
       };
     };

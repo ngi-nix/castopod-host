@@ -3,18 +3,18 @@
     "castopod-host-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1633445093,
-        "narHash": "sha256-0neBFdJNXdIHrpQ6+pKD+6MPviX/sFpNNXnAiZmzZ0M=",
+        "lastModified": 1640772523,
+        "narHash": "sha256-TjPottsWK6a1eGolLpWC31hEmF1vfSYET9ho+PstZ1M=",
         "ref": "alpha",
-        "rev": "84a0029c56ca24d47f4ba8649f6f448d890a29fa",
-        "revCount": 319,
+        "rev": "3a0a76d705f0488503f55aec3ad362327cea4158",
+        "revCount": 331,
         "type": "git",
-        "url": "https://code.podlibre.org/podlibre/castopod-host"
+        "url": "https://code.castopod.org/adaures/castopod"
       },
       "original": {
         "ref": "alpha",
         "type": "git",
-        "url": "https://code.podlibre.org/podlibre/castopod-host"
+        "url": "https://code.castopod.org/adaures/castopod"
       }
     },
     "composer2nix": {
