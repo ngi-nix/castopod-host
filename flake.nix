@@ -51,7 +51,7 @@
       nixpkgsBySystem = forAllSystems (system: import nixpkgs {
         inherit system;
         overlays = [
-          self.overlay
+          self.overlays.default
           (final: prev: { update-nixified-deps = final.callPackage update-nixified-deps {}; })
         ];
       });
@@ -186,18 +186,20 @@
     in {
 
       # A Nixpkgs overlay that adds the package
-      overlay = final: prev: { castopod-host = final.callPackage package {}; };
+      overlays.default = final: prev: {
+        castopod-host = final.callPackage package {};
+      };
 
       # The package built against the specified Nixpkgs version
       packages = forAttrs nixpkgsBySystem (_: pkgs: {
         inherit (pkgs) castopod-host update-nixified-deps;
+        default = pkgs.castopod-host;
       });
 
-      # The default package for 'nix build'
-      defaultPackage = forAttrs self.packages (_: pkgs: pkgs.castopod-host);
-
       # A 'nix develop' environment for interactive hacking
-      devShell = forAttrs self.packages (_: pkgs: pkgs.castopod-host.override { inShell = true; });
+      devShells = forAllSystems (system: {
+        default = self.packages.${system}.castopod-host.override { inShell = true; };
+      });
 
       # A NixOS module
       nixosModules.castopod-host = { config, pkgs, lib, ... }:
@@ -342,7 +344,7 @@
           };
 
           config = mkIf cfg.enable {
-            nixpkgs.overlays = [ self.overlay ];
+            nixpkgs.overlays = [ self.overlays.default ];
             users = {
               users.${cfg.user} = {
                 group = cfg.user;
