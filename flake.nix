@@ -226,7 +226,7 @@
               ${cfg.extraConfig}
             '';
           };
-          php = pkgs.php.withExtensions ({ enabled, all }:
+          php = pkgs.php80.withExtensions ({ enabled, all }:
             with all; enabled ++ [ intl curl mbstring gd mysqlnd ]
           );
         in
