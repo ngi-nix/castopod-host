@@ -3,13 +3,15 @@
 
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-unstable";
-    castopod-host-src = {
-      url = "git+https://code.castopod.org/adaures/castopod?ref=alpha";
-      flake = false;
-    };
+    dream2nix.url = "github:nix-community/dream2nix";
     composer2nix.url = "github:charlieshanley/composer2nix";
     ipcat = {
       url = "github:client9/ipcat";
+      flake = false;
+    };
+
+    castopod-host-src = {
+      url = "git+https://code.castopod.org/adaures/castopod?ref=alpha";
       flake = false;
     };
     podcastNamespace = {
@@ -29,8 +31,9 @@
   outputs =
     { self
     , nixpkgs
-    , castopod-host-src
+    , dream2nix
     , composer2nix
+    , castopod-host-src
     , ipcat
     , podcastNamespace
     , userAgents
