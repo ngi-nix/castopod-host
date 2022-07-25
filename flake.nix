@@ -138,15 +138,10 @@
             };
             vendorSha256 = "sha256-2ABWPqhK2Cf4ipQH7XvRrd+ZscJhYPc3SV2cGT0apdg=";
           };
-          npmPackage = (callPackage ./deps/node-composition.nix {}).package.override {
-            src = patchedSrc;
-            npmFlags = "--ignore-scripts";
-            ESBUILD_BINARY_PATH = "${esbuild}/bin/esbuild";
-            postInstall = ''
-              npm run build
-              npm run build:static
-            '';
-          };
+          npmPackage = (callPackage ./deps/node-dream2nix.nix {
+            inherit dream2nix esbuild;
+            src = castopod-host-src;
+          });
           envFile' = writeText ".env" ''
             images.libraryPath = "${imagemagick}/bin/convert"
             email.mailPath = "${msmtp}/bin/sendmail"
@@ -176,7 +171,7 @@
           # Compose the npm and php packages together
           runCommand "castopod-host-${version}" {} ''
             mkdir $out
-            ${rsync}/bin/rsync -a ${npmPackage}/lib/node_modules/castopod-host/ ${phpPackage}/ $out
+            ${rsync}/bin/rsync -a ${phpPackage}/ ${npmPackage}/lib/node_modules/castopod-host/ $out
             chmod -R +w $out
 
             ln -s ${envFile'} $out/.env
