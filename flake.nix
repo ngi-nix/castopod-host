@@ -62,23 +62,14 @@
       # It's a shame this is necessary. Alas. Run this after updating the
       # castopod-host-src input: `nix run .#update-nixified-deps`
       update-nixified-deps = { system, nodePackages, nix-prefetch-scripts, writeShellScriptBin }:
-        let n2n = "${nodePackages.node2nix}/bin";
-            c2n = "${composer2nix.defaultPackage.${system}}/bin";
+        let c2n = "${composer2nix.defaultPackage.${system}}/bin";
             nps = "${nix-prefetch-scripts}/bin";
         in writeShellScriptBin "update-nixified-dependencies" ''
-             export PATH=${n2n}:${c2n}:${nps}:$PATH
+             export PATH=${c2n}:${nps}:$PATH
              pushd deps
-             cp ${castopod-host-src}/package.json \
-                ${castopod-host-src}/package-lock.json \
-                ${castopod-host-src}/composer.json \
+             cp ${castopod-host-src}/composer.json \
                 ${castopod-host-src}/composer.lock \
                 ./
-             node2nix --input package.json \
-                      --lock package-lock.json \
-                      --development \
-                      --output node-packages.nix \
-                      --composition node-composition.nix \
-                      --node-env node-env.nix
              composer2nix --config-file composer.json \
                           --lock-file composer.lock \
                           --no-dev \
@@ -115,33 +106,21 @@
         }:
         let
           inherit (pkgs) callPackage substituteAll applyPatches writeText lib
-                         fetchFromGitHub buildGoModule git nodePackages stdenv
-                         imagemagick msmtp rsync runCommand;
+                         git stdenv imagemagick msmtp rsync runCommand;
           inherit (builtins) toPath map removeAttrs;
+          npmPackage = (callPackage ./deps/node-dream2nix.nix {
+            inherit dream2nix;
+            src = castopod-host-src;
+          });
           # This is a separate drv because of idiosyncrasies in the *2nix builds
           patchedSrc = applyPatches {
-            name = "castopod-host-src";
+            name = "castopod-host-src-patched";
             src = castopod-host-src;
             patches = [
               (substituteAll { src = ./patches/stateDir.patch; inherit stateDir; })
               (substituteAll { src = ./patches/podcastNamespace.patch; inherit podcastNamespace; })
             ];
           };
-          esbuild = buildGoModule rec {
-            pname = "esbuild";
-            version = "0.12.12";
-            src = fetchFromGitHub {
-              owner = "evanw";
-              repo = "esbuild";
-              rev = "v${version}";
-              sha256 = "sha256-4Ooadv8r6GUBiayiv4WKVurUeRPIv6LPlMhieH4VL8o=";
-            };
-            vendorSha256 = "sha256-2ABWPqhK2Cf4ipQH7XvRrd+ZscJhYPc3SV2cGT0apdg=";
-          };
-          npmPackage = (callPackage ./deps/node-dream2nix.nix {
-            inherit dream2nix esbuild;
-            src = castopod-host-src;
-          });
           envFile' = writeText ".env" ''
             images.libraryPath = "${imagemagick}/bin/convert"
             email.mailPath = "${msmtp}/bin/sendmail"
@@ -152,6 +131,10 @@
                 subbedPatches = map (p: substituteAll ({ src = p; } // extraArgs)) patches;
             in x: applyPatches { src = x; patches = subbedPatches; };
           phpPackage = (callPackage ./deps/php-composition.nix {
+            pkgs = pkgs // {
+              php = pkgs.php80;
+              phpPackages = pkgs.php80Packages;
+            };
             noDev = true;
             packageOverrides = {
               "podlibre/ipcat" = patchFun {
