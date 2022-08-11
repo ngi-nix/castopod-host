@@ -33,12 +33,8 @@ let
       };
       castopod-host = {
         "build" = {
-          buildInputs = old: with pkgs; old ++ [
-            nodePackages.svgo
-          ];
-          postInstall = ''
+          buildScript = ''
             npm run build
-            ln -sf ${pkgs.nodePackages.svgo}/node_modules/.bin/svgo $out/lib/node_modules/.bin
             npm run build:static
           '';
         };
