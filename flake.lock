@@ -62,11 +62,11 @@
     "crane": {
       "flake": false,
       "locked": {
-        "lastModified": 1654444508,
-        "narHash": "sha256-4OBvQ4V7jyt7afs6iKUvRzJ1u/9eYnKzVQbeQdiamuY=",
+        "lastModified": 1661875961,
+        "narHash": "sha256-f1h/2c6Teeu1ofAHWzrS8TwBPcnN+EEu+z1sRVmMQTk=",
         "owner": "ipetkov",
         "repo": "crane",
-        "rev": "db5482bf225acc3160899124a1df5a617cfa27b5",
+        "rev": "d9f394e4e20e97c2a60c3ad82c2b6ef99be19e24",
         "type": "github"
       },
       "original": {
@@ -104,11 +104,11 @@
         "pre-commit-hooks": "pre-commit-hooks"
       },
       "locked": {
-        "lastModified": 1660233797,
-        "narHash": "sha256-uj+BN6xUqo34efxzSxKBNEoowrtO+xboPYrdxJ8TY64=",
+        "lastModified": 1663054743,
+        "narHash": "sha256-rCKfpnb70ugyI7zNnbXtrKtjISPkY9WZnTd7sqZkDl8=",
         "owner": "nix-community",
         "repo": "dream2nix",
-        "rev": "98e0a1a0ad0b57c5e0c40ef820203101d3971d2f",
+        "rev": "c2ebb96bf2255b1fd284cebbf278dd474880de30",
         "type": "github"
       },
       "original": {
@@ -266,27 +266,27 @@
     },
     "nixpkgs_3": {
       "locked": {
-        "lastModified": 1658290795,
-        "narHash": "sha256-t9hCidaSxPmzUimcSn51bjqcjjGsoQi6JLrAzJq0dz4=",
+        "lastModified": 1663182286,
+        "narHash": "sha256-RFe3z6/tFL98wK2et8ahTo5eUp6PWMl9DgWq8kYOdMk=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "614a842b74b7a1497e8cfca7c61bec38f51911b3",
+        "rev": "23aff1fce8425fe286e4994a2b9f555e1e7d8835",
         "type": "github"
       },
       "original": {
-        "id": "nixpkgs",
-        "ref": "nixos-unstable",
-        "type": "indirect"
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "type": "github"
       }
     },
     "podcastNamespace": {
       "flake": false,
       "locked": {
-        "lastModified": 1658118926,
-        "narHash": "sha256-gLWtwgwuae+aXT8hldPFGToqDvfTN2ZzJfUyZ62oKTM=",
+        "lastModified": 1662987303,
+        "narHash": "sha256-d3XD9uOm+ckQUsWBuBIKuSDOZiLhhYTdJ75B6KQkstw=",
         "owner": "Podcastindex-org",
         "repo": "podcast-namespace",
-        "rev": "efa072b0d1c71ab9bacb082406b8f5324a82f2c3",
+        "rev": "4f5c9ec3b4b3913c0ced17313ec255d68e6a4f12",
         "type": "github"
       },
       "original": {
@@ -299,11 +299,11 @@
     "podcastRssUserAgents": {
       "flake": false,
       "locked": {
-        "lastModified": 1652062112,
-        "narHash": "sha256-8tM3UH0x8vZGzVVrBLycrShBq1hIAu0kDI/OcFOrUmQ=",
+        "lastModified": 1662025731,
+        "narHash": "sha256-/rltfVNI16p2dEqLW9VjOIn2eueEwgo5E58wR1uAKb8=",
         "owner": "opawg",
         "repo": "podcast-rss-useragents",
-        "rev": "707cd8c554264f70495ed48860ee9e755a92c674",
+        "rev": "6a62c1e2c9eb3d548b2b24a3ce1bb0c8f88de6b1",
         "type": "github"
       },
       "original": {
@@ -386,11 +386,11 @@
     "userAgents": {
       "flake": false,
       "locked": {
-        "lastModified": 1657423831,
-        "narHash": "sha256-CfrBFBotml81qbeUvrIeNEXCLf0W/cDhX4cB0crwLiE=",
+        "lastModified": 1662250980,
+        "narHash": "sha256-ZbtMeRuhFyjV2gnRPW1D//JNMU0ZwSmTb5NaAol9OWw=",
         "owner": "opawg",
         "repo": "user-agents",
-        "rev": "696537ac69dd82bb149024a9229c9bf61cfd2eae",
+        "rev": "e0bb41f0b55aa1b0695bd5836d861c0489c2d221",
         "type": "github"
       },
       "original": {

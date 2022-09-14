@@ -2,7 +2,7 @@
   description = "A free and open-source podcast hosting solution made for podcasters who want engage and interact with their audience";
 
   inputs = {
-    nixpkgs.url = "nixpkgs/nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs";
     dream2nix.url = "github:nix-community/dream2nix";
     composer2nix.url = "github:charlieshanley/composer2nix";
     ipcat = {
