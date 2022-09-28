@@ -4,12 +4,10 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs";
     dream2nix.url = "github:nix-community/dream2nix";
-    composer2nix.url = "github:charlieshanley/composer2nix";
     ipcat = {
       url = "github:client9/ipcat";
       flake = false;
     };
-
     castopod-host-src = {
       url = "git+https://code.castopod.org/adaures/castopod?ref=alpha";
       flake = false;
@@ -32,7 +30,6 @@
     { self
     , nixpkgs
     , dream2nix
-    , composer2nix
     , castopod-host-src
     , ipcat
     , podcastNamespace
@@ -55,29 +52,8 @@
         inherit system;
         overlays = [
           self.overlays.default
-          (final: prev: { update-nixified-deps = final.callPackage update-nixified-deps {}; })
         ];
       });
-
-      # It's a shame this is necessary. Alas. Run this after updating the
-      # castopod-host-src input: `nix run .#update-nixified-deps`
-      update-nixified-deps = { system, nodePackages, nix-prefetch-scripts, writeShellScriptBin }:
-        let c2n = "${composer2nix.defaultPackage.${system}}/bin";
-            nps = "${nix-prefetch-scripts}/bin";
-        in writeShellScriptBin "update-nixified-dependencies" ''
-             export PATH=${c2n}:${nps}:$PATH
-             pushd deps
-             cp ${castopod-host-src}/composer.json \
-                ${castopod-host-src}/composer.lock \
-                ./
-             composer2nix --config-file composer.json \
-                          --lock-file composer.lock \
-                          --no-dev \
-                          --output php-packages.nix \
-                          --composition php-composition.nix \
-                          --composer-env composer-env.nix
-             popd
-           '';
 
       defaultEnvFile = ''
         CI_ENVIRONMENT = "development"
@@ -108,14 +84,18 @@
           inherit (pkgs) callPackage substituteAll applyPatches writeText lib
                          git stdenv imagemagick msmtp rsync runCommand;
           inherit (builtins) toPath map removeAttrs;
+
           npmPackage = (callPackage ./deps/node-dream2nix.nix {
             inherit dream2nix;
             src = castopod-host-src;
           });
-          # This is a separate drv because of idiosyncrasies in the *2nix builds
-          patchedSrc = applyPatches {
-            name = "castopod-host-src-patched";
+          phpPackage = (callPackage ./deps/php-dream2nix.nix {
+            inherit dream2nix ipcat userAgents podcastRssUserAgents;
             src = castopod-host-src;
+          });
+          phpPackagePatched = applyPatches {
+            name = "podlibre/castopod-host-patched";
+            src = "${phpPackage}/lib/vendor/podlibre/castopod-host";
             patches = [
               (substituteAll { src = ./patches/stateDir.patch; inherit stateDir; })
               (substituteAll { src = ./patches/podcastNamespace.patch; inherit podcastNamespace; })
@@ -126,35 +106,11 @@
             email.mailPath = "${msmtp}/bin/sendmail"
             ${envFile}
           '';
-          patchFun = { patches, ... }@args:
-            let extraArgs = removeAttrs args [ "patches" ];
-                subbedPatches = map (p: substituteAll ({ src = p; } // extraArgs)) patches;
-            in x: applyPatches { src = x; patches = subbedPatches; };
-          phpPackage = (callPackage ./deps/php-composition.nix {
-            pkgs = pkgs // {
-              php = pkgs.php80;
-              phpPackages = pkgs.php80Packages;
-            };
-            noDev = true;
-            packageOverrides = {
-              "podlibre/ipcat" = patchFun {
-                patches = [ ./patches/ipcat.patch ];
-                inherit ipcat;
-              };
-              "opawg/user-agents-php" = patchFun {
-                patches = [ ./patches/userAgents.patch ];
-                inherit userAgents podcastRssUserAgents;
-              };
-            };
-          }).overrideAttrs (initial: {
-            src = patchedSrc;
-            nativeBuildInputs = initial.nativeBuildInputs or [] ++ [ git ];
-          });
         in
           # Compose the npm and php packages together
           runCommand "castopod-host-${version}" {} ''
             mkdir $out
-            ${rsync}/bin/rsync -a ${phpPackage}/ ${npmPackage}/lib/node_modules/castopod-host/ $out
+            ${rsync}/bin/rsync -a ${phpPackagePatched}/ ${npmPackage}/lib/node_modules/castopod-host/ $out
             chmod -R +w $out
 
             ln -s ${envFile'} $out/.env
@@ -172,9 +128,9 @@
       };
 
       # The package built against the specified Nixpkgs version
-      packages = forAttrs nixpkgsBySystem (_: pkgs: {
-        inherit (pkgs) castopod-host update-nixified-deps;
-        default = pkgs.castopod-host;
+      packages = forAttrs nixpkgsBySystem (_: pkgs: rec {
+        inherit (pkgs) castopod-host;
+        default = castopod-host;
       });
 
       # A 'nix develop' environment for interactive hacking
@@ -478,7 +434,6 @@
           })
         ];
       };
-
 
       # TODO Tests run by 'nix flake check'
     };

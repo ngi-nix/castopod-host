@@ -8,7 +8,7 @@
 let
   outputs = (dream2nix.lib.init {
     inherit pkgs;
-    config.projectRoot = src;
+    config.projectRoot = ../.;
   }).makeOutputs {
     source = src;
     packageOverrides = {
